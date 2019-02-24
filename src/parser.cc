@@ -107,6 +107,8 @@ Token Lexer::NextToken(LexerState& state) const
         else if (identifier == "let")           { return { TokenType::LetKW,        identifier }; }
         else if (identifier == "defun")         { return { TokenType::DefunKW,      identifier }; }
         else if (identifier == "define")        { return { TokenType::DefineKW,     identifier }; }
+        else if (identifier == "if")            { return { TokenType::IfKW,         identifier }; }
+        else if (identifier == "else")          { return { TokenType::ElseKW,       identifier }; }
         //else if (identifier == "module")        { return { TokenType::ModuleKW,     identifier }; }
         //else if (identifier == "struct")        { return { TokenType::StructKW,     identifier }; }
         //else if (identifier == "function")      { return { TokenType::FunctionKW,   identifier }; }
@@ -328,6 +330,19 @@ AST::BaseExpressionPtr Parser::ParseLambda(const Token& lambdaToken, AST::FormEx
     return lambdaDecl;
 }
 
+AST::BaseExpressionPtr Parser::ParseIf(const Token& value, AST::FormExpression::FormScope& parentScope)
+{
+    auto condition = ParseFormOrValue(NextToken(), parentScope);
+    auto trueExpression = ParseFormOrValue(NextToken(), parentScope);
+    AST::BaseExpressionPtr falseExpression;
+    if (!PeekToken().IsSymbol(")")) {
+        falseExpression = ParseFormOrValue(NextToken(), parentScope);
+    }
+
+    return std::make_unique<AST::IfExpression>(GetParseContext(value), std::move(condition),
+                                               std::move(trueExpression), std::move(falseExpression));
+}
+
 AST::BaseExpressionPtr Parser::ParseDefun(const Token& lambdaName, AST::FormExpression::FormScope& parentScope)
 {
     auto lambdaDecl = ParseLambda(lambdaName, parentScope);
@@ -360,8 +375,13 @@ AST::BaseExpressionPtr Parser::ParseSingleValue(const Token& value, AST::FormExp
                         GetParseContext(value), AST::LiteralExpression::String);
         } break;
 
+        case TokenType::IfKW: {
+            return ParseIf(value, parentScope);
+        }
+
         case TokenType::Symbol: {
-            if (value.Value == "+" || value.Value == "-" || value.Value == "*" || value.Value == "/") {
+            if (value.Value == "+" || value.Value == "-" || value.Value == "*" || value.Value == "/" ||
+                value.Value == ">" || value.Value == "<" || value.Value == "=" || value.Value == "~") { // TODO: Not-equals symbol
                 AST::BaseExpressionPtr lhs;
                 AST::BaseExpressionPtr rhs;
 

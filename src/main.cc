@@ -66,7 +66,7 @@ void ParseAndGenerate(Parser& parser, std::string_view inFile, std::string_view 
 
     AST::GeneratedScope rootScope;
     rootScope.Types.insert(std::make_pair("void", llvm::Type::getVoidTy(*LLVMContext.get())));
-    rootScope.Types.insert(std::make_pair("bool", llvm::Type::getInt1Ty(*LLVMContext.get())));
+    rootScope.Types.insert(std::make_pair("boolean", llvm::Type::getInt1Ty(*LLVMContext.get())));
     rootScope.Types.insert(std::make_pair("f16", llvm::Type::getHalfTy(*LLVMContext.get())));
     rootScope.Types.insert(std::make_pair("f32", llvm::Type::getFloatTy(*LLVMContext.get())));
     rootScope.Types.insert(std::make_pair("f64", llvm::Type::getDoubleTy(*LLVMContext.get())));

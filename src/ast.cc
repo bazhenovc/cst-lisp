@@ -160,6 +160,8 @@ namespace AST
         }
 
         if (false) {}
+
+        // Arithmetic operators
         else if (Operator == "+") {
             if (lhs->getType()->isStructTy()) {
                 // TODO: structs support
@@ -301,7 +303,96 @@ namespace AST
     }
 
     //-----------------------------------------------------------------------------------------------------------------
-    // LambdaCall
+    // If
+    IfExpression::IfExpression(SourceParseContext context, BaseExpressionPtr &&conditionExpression,
+                               BaseExpressionPtr &&thenExpression, BaseExpressionPtr &&elseExpression)
+        : BaseExpression(context)
+    {
+        ConditionExpression = std::move(conditionExpression);
+        TrueExpression = std::move(thenExpression);
+        ElseExpression = std::move(elseExpression);
+    }
+
+    llvm::Value* IfExpression::Generate(CodeGenContext &cc)
+    {
+        llvm::Value* conditionValue = ConditionExpression->Generate(cc);
+        llvm::Value* thenValue = nullptr;
+        llvm::Value* elseValue = nullptr;
+
+        Assert(conditionValue->getType()->isIntegerTy(), "Boolean or integer expected");
+        llvm::IntegerType* intType = static_cast<llvm::IntegerType*>(conditionValue->getType());
+        conditionValue = cc.Builder->CreateICmpEQ(conditionValue,
+                                                  llvm::ConstantInt::get(intType,
+                                                                         llvm::APInt(intType->getBitWidth(), 1, false)));
+
+        // Blocks
+        llvm::BasicBlock* thenBlock = llvm::BasicBlock::Create(*cc.Context, "if", cc.Builder->GetInsertBlock()->getParent());
+        llvm::BasicBlock* elseBlock = llvm::BasicBlock::Create(*cc.Context, "else", cc.Builder->GetInsertBlock()->getParent());
+        llvm::BasicBlock* mergeBlock = llvm::BasicBlock::Create(*cc.Context, "next", cc.Builder->GetInsertBlock()->getParent());
+
+        cc.Builder->CreateCondBr(conditionValue, thenBlock, elseBlock);
+
+        // Emit true block
+        if (TrueExpression) {
+            GeneratedScope localScope = cc.Scope;
+            localScope.RootBlock = thenBlock;
+            cc.Builder->SetInsertPoint(thenBlock);
+
+            CodeGenContext localContext = {
+                localScope,
+                cc.Builder, cc.Module, cc.Context,
+            };
+
+            thenValue = TrueExpression->Generate(localContext);
+            cc.Builder->CreateBr(mergeBlock);
+        }
+
+
+        // Emit false block
+        {
+            if (ElseExpression) {
+                GeneratedScope localScope = cc.Scope;
+                localScope.RootBlock = elseBlock;
+                cc.Builder->SetInsertPoint(elseBlock);
+
+                CodeGenContext localContext = {
+                    localScope,
+                    cc.Builder, cc.Module, cc.Context,
+                };
+
+                elseValue = ElseExpression->Generate(localContext);
+                elseValue = PerformSafeTypeCast(elseValue, thenValue->getType());
+            }
+            cc.Builder->SetInsertPoint(elseBlock);
+            cc.Builder->CreateBr(mergeBlock);
+        }
+
+        // This is probably the only place that modifies the insert point and does not restore it back
+        cc.Builder->SetInsertPoint(mergeBlock);
+        cc.Scope.RootBlock = mergeBlock;
+
+        llvm::PHINode* phi = cc.Builder->CreatePHI(thenValue->getType(), elseValue ? 2 : 1);
+        phi->addIncoming(thenValue, thenBlock);
+        if (elseValue != nullptr) {
+            phi->addIncoming(elseValue, elseBlock);
+        }
+
+        return phi;
+    }
+
+    void IfExpression::DebugPrint(int indent)
+    {
+        BaseExpression::DebugPrint(indent);
+        if (TrueExpression) {
+            TrueExpression->DebugPrint(indent + 1);
+        }
+        if (ElseExpression) {
+            ElseExpression->DebugPrint(indent + 1);
+        }
+    }
+
+    //-----------------------------------------------------------------------------------------------------------------
+    // Form
     FormExpression::FormExpression(SourceParseContext parseContext,
                                    std::vector<BaseExpressionPtr> &&arguments, FormScope&& scope)
         : BaseExpression(parseContext)

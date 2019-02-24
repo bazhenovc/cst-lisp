@@ -129,6 +129,19 @@ namespace AST
         virtual void DebugPrint(int indent) override;
     };
 
+    struct IfExpression : public BaseExpression
+    {
+        BaseExpressionPtr   ConditionExpression;
+        BaseExpressionPtr   TrueExpression;
+        BaseExpressionPtr   ElseExpression;
+
+        IfExpression(SourceParseContext context, BaseExpressionPtr&& conditionExpression,
+                     BaseExpressionPtr&& thenExpression, BaseExpressionPtr&& elseExpression);
+
+        virtual llvm::Value* Generate(CodeGenContext& cc) override;
+        virtual void DebugPrint(int indent) override;
+    };
+
     struct FormExpression : public BaseExpression
     {
         struct FormScope

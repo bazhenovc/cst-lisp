@@ -30,8 +30,23 @@
   (let ((x (lambda (f16) i32 (rand))))
     (x 0.2)))
 
+;(defun test-boolean () boolean
+;    (< 0.5 0.2))
+
+;(defun test-if ((in_value f16)) f16
+;  (if (< in_value 0.5)
+;    in_value
+;    (* in_value 2))
+
+(defun test-if () i32
+  (if 1
+    (puts "true")
+    (puts "false"))
+  (puts "end"))
+
 (defun main () i32
   (puts "Hello World")
+  (test-if)
   (puts string-constant)
   (test-scope)
   (test-scope-lambda)
