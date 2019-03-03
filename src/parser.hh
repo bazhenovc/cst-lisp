@@ -45,7 +45,6 @@ enum class TokenType
     DefineKW,
     LetKW,
     IfKW,
-    ElseKW,
     //ModuleKW,
     //StructKW,
     //FunctionKW,

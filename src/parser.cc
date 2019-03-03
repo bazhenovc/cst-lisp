@@ -108,7 +108,6 @@ Token Lexer::NextToken(LexerState& state) const
         else if (identifier == "defun")         { return { TokenType::DefunKW,      identifier }; }
         else if (identifier == "define")        { return { TokenType::DefineKW,     identifier }; }
         else if (identifier == "if")            { return { TokenType::IfKW,         identifier }; }
-        else if (identifier == "else")          { return { TokenType::ElseKW,       identifier }; }
         //else if (identifier == "module")        { return { TokenType::ModuleKW,     identifier }; }
         //else if (identifier == "struct")        { return { TokenType::StructKW,     identifier }; }
         //else if (identifier == "function")      { return { TokenType::FunctionKW,   identifier }; }
@@ -167,7 +166,8 @@ Token Lexer::NextToken(LexerState& state) const
     if (        c == '+' || c == '-' || c == '*' || c == '/'
                 ||      c == '(' || c == ')' || c == '<' || c == '>'
                 ||      c == '^' || c == '|' || c == '&' || c == '!'
-                ||      c == '=' || c == ':' || c == ';') {
+                ||      c == '=' || c == ':' || c == ';'
+                ||      c == '[' || c == ']') {
         return { TokenType::Symbol, GetSource(state, lastCharIndex) };
     }
 
@@ -233,7 +233,7 @@ AST::BaseExpressionPtr Parser::ParseLet(AST::FormExpression::FormScope& parentSc
         if (bindingToken.IsSymbol(")")) {
             break;
         }
-        Assert(bindingToken.IsSymbol("("), "Unexpected token, '(' is expected");
+        Assert(bindingToken.IsSymbol("["), "Unexpected token, '[' is expected");
 
         Token bindingName = NextToken();
         Assert(bindingName.IsIdentifier(), "Identifier expected as a binding name");
@@ -245,7 +245,7 @@ AST::BaseExpressionPtr Parser::ParseLet(AST::FormExpression::FormScope& parentSc
         bindings.insert(itr, { bindingName.Value, std::move(value) });
 
         Token lastToken = NextToken();
-        Assert(lastToken.IsSymbol(")"), "Unexpected token, ')' is expected");
+        Assert(lastToken.IsSymbol("]"), "Unexpected token, ']' is expected");
     }
 
     // Parse expression
@@ -280,14 +280,14 @@ AST::LambdaExpression::LambdaSignature Parser::ParseLambdaSignature()
             break;
         }
 
-        if (argToken.IsSymbol("(")) {
+        if (argToken.IsSymbol("[")) {
             Token argName = NextToken();
             Assert(argName.IsIdentifier(), "Identifier expected for function argument name");
             functionArgNames.push_back(argName.Value);
             functionArgTypes.push_back(ParseType(NextToken()));
 
             Token lastToken = NextToken();
-            Assert(lastToken.IsSymbol(")"), "Unexpected token when parsing function signature, ')' expected");
+            Assert(lastToken.IsSymbol("]"), "Unexpected token when parsing function signature, ']' expected");
         } else {
             functionArgNames.push_back(std::string_view());
             functionArgTypes.push_back(ParseType(argToken));
@@ -334,10 +334,7 @@ AST::BaseExpressionPtr Parser::ParseIf(const Token& value, AST::FormExpression::
 {
     auto condition = ParseFormOrValue(NextToken(), parentScope);
     auto trueExpression = ParseFormOrValue(NextToken(), parentScope);
-    AST::BaseExpressionPtr falseExpression;
-    if (!PeekToken().IsSymbol(")")) {
-        falseExpression = ParseFormOrValue(NextToken(), parentScope);
-    }
+    auto falseExpression = ParseFormOrValue(NextToken(), parentScope);
 
     return std::make_unique<AST::IfExpression>(GetParseContext(value), std::move(condition),
                                                std::move(trueExpression), std::move(falseExpression));

@@ -17,17 +17,17 @@
 
 (defun test-lambda (i128) f32
   ((lambda () f32
-    ((lambda ((root_value f32)) f32
-      ((lambda ((in_value f32)) f32
+    ((lambda ([root_value f32]) f32
+      ((lambda ([in_value f32]) f32
         (+ (/ in_value (get-float)) (* (+ 1.22 in_value) 2))) 42.5)) (named-lambda)))))
 
 (defun test-scope () u32
-  (let ((x 42))
+  (let ([x 42])
     ((lambda () u32 (+ x (rand))))))    ; (lambda () u32 x) will crash the compiler, captures are not implemented
                                         ; but (+ x (rand)) will not, because X resolves to constant
 
 (defun test-scope-lambda () i32
-  (let ((x (lambda (f16) i32 (rand))))
+  (let ([x (lambda (f16) i32 (rand))])
     (x 0.2)))
 
 ;(defun test-boolean () boolean
@@ -41,14 +41,22 @@
 (defun test-if () i32
   (if 1
     (puts "true")
-    (puts "false"))
-  (puts "end"))
+    (puts "false")))
+
+(defun test-if-let () i32
+  (let ([x (if 1 "true" "false")])
+    (puts x)))
+
+(defun test-func-with-args ([x f32] [y f64]) f32
+  y x)
 
 (defun main () i32
   (puts "Hello World")
   (test-if)
+  (test-if-let)
   (puts string-constant)
   (test-scope)
   (test-scope-lambda)
-  (let ((x (test-lambda 15041993)))
-      0))
+  (test-func-with-args 3.14 1.12)
+  (let ([x (test-lambda 15041993)])
+    0))
