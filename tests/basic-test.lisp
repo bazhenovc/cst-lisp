@@ -38,22 +38,37 @@
 ;    in_value
 ;    (* in_value 2))
 
-(defun test-if () i32
-  (if 1
-    (puts "true")
-    (puts "false")))
+;(defun test-if () i32
+;  (if 1
+;    (puts "true")
+;    (puts "false")))
+;
+;(defun test-if-let () i32
+;  (let ([x (if 1 "true" "false")])
+;    (puts x)))
 
-(defun test-if-let () i32
-  (let ([x (if 1 "true" "false")])
-    (puts x)))
+(defun test-cond-if () i32
+  (cond
+    [0 (puts "cond failed")]
+    [else (puts "cond passed")]))
+
+(defun test-cond () i32
+  (cond
+    [0 (puts "0 is false, this should not happen")]
+    [1 (puts "1 is true")]
+    [2 (puts "2 is true, but this should not happen")]
+    [3 (puts "3 is also true, however this is shoudl not happen too")]
+    [else (puts "else, we'll never see this one")]))
 
 (defun test-func-with-args ([x f32] [y f64]) f32
   y x)
 
 (defun main () i32
   (puts "Hello World")
-  (test-if)
-  (test-if-let)
+  ;(test-if)
+  ;(test-if-let)
+  (test-cond-if)
+  (test-cond)
   (puts string-constant)
   (test-scope)
   (test-scope-lambda)

@@ -92,7 +92,7 @@ namespace AST
         void Assert(bool condition, std::string_view message);
 
         llvm::Type* ResolveType(ExpressionType type, const GeneratedScope& scope);
-        llvm::Value* PerformSafeTypeCast(llvm::Value* value, llvm::Type* desiredType);
+        llvm::Value* GenerateSafeTypeCast(llvm::Value* value, llvm::Type* desiredType);
 
         // Debug printing
         virtual void DebugPrint(int indent);
@@ -129,14 +129,17 @@ namespace AST
         virtual void DebugPrint(int indent) override;
     };
 
-    struct IfExpression : public BaseExpression
+    struct CondExpression : public BaseExpression
     {
-        BaseExpressionPtr   ConditionExpression;
-        BaseExpressionPtr   TrueExpression;
-        BaseExpressionPtr   ElseExpression;
+        struct ConditionAndValue
+        {
+            BaseExpressionPtr Condition;
+            BaseExpressionPtr Value;
+        };
 
-        IfExpression(SourceParseContext context, BaseExpressionPtr&& conditionExpression,
-                     BaseExpressionPtr&& thenExpression, BaseExpressionPtr&& elseExpression);
+        std::vector<ConditionAndValue> Body;
+
+        CondExpression(SourceParseContext context, std::vector<ConditionAndValue>&& body);
 
         virtual llvm::Value* Generate(CodeGenContext& cc) override;
         virtual void DebugPrint(int indent) override;

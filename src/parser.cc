@@ -107,7 +107,8 @@ Token Lexer::NextToken(LexerState& state) const
         else if (identifier == "let")           { return { TokenType::LetKW,        identifier }; }
         else if (identifier == "defun")         { return { TokenType::DefunKW,      identifier }; }
         else if (identifier == "define")        { return { TokenType::DefineKW,     identifier }; }
-        else if (identifier == "if")            { return { TokenType::IfKW,         identifier }; }
+        else if (identifier == "cond")          { return { TokenType::CondKW,       identifier }; }
+        else if (identifier == "else")          { return { TokenType::ElseKW,       identifier }; }
         //else if (identifier == "module")        { return { TokenType::ModuleKW,     identifier }; }
         //else if (identifier == "struct")        { return { TokenType::StructKW,     identifier }; }
         //else if (identifier == "function")      { return { TokenType::FunctionKW,   identifier }; }
@@ -330,14 +331,41 @@ AST::BaseExpressionPtr Parser::ParseLambda(const Token& lambdaToken, AST::FormEx
     return lambdaDecl;
 }
 
-AST::BaseExpressionPtr Parser::ParseIf(const Token& value, AST::FormExpression::FormScope& parentScope)
+AST::BaseExpressionPtr Parser::ParseCond(const Token& condToken, AST::FormExpression::FormScope& parentScope)
 {
-    auto condition = ParseFormOrValue(NextToken(), parentScope);
-    auto trueExpression = ParseFormOrValue(NextToken(), parentScope);
-    auto falseExpression = ParseFormOrValue(NextToken(), parentScope);
+    std::vector<AST::CondExpression::ConditionAndValue> condBody;
+    while (Token nextToken = PeekToken()) {
+        if (nextToken.IsSymbol(")")) {
+            break;
+        }
 
-    return std::make_unique<AST::IfExpression>(GetParseContext(value), std::move(condition),
-                                               std::move(trueExpression), std::move(falseExpression));
+        Token bodyToken = NextToken();
+        Assert(bodyToken.IsSymbol("["), "Unexpected symbol, expected '['");
+
+        AST::CondExpression::ConditionAndValue bodyItem;
+
+        bool isLastItem = false;
+        Token conditionToken = NextToken();
+        if (conditionToken.Type == TokenType::ElseKW) {
+            bodyItem.Condition = nullptr;
+            isLastItem = true;
+        } else {
+            bodyItem.Condition = ParseFormOrValue(conditionToken, parentScope);
+        }
+
+        bodyItem.Value = ParseFormOrValue(NextToken(), parentScope);
+        condBody.emplace_back(std::move(bodyItem));
+
+        Token lastToken = NextToken();
+        Assert(lastToken.IsSymbol("]"), "Unexpected symbol, expected '[");
+
+        if (isLastItem) {
+            Assert(PeekToken().IsSymbol(")"), "Else clause should always be the last one");
+        }
+    }
+
+    return std::make_unique<AST::CondExpression>(GetParseContext(condToken),
+                                                 std::move(condBody));
 }
 
 AST::BaseExpressionPtr Parser::ParseDefun(const Token& lambdaName, AST::FormExpression::FormScope& parentScope)
@@ -372,8 +400,8 @@ AST::BaseExpressionPtr Parser::ParseSingleValue(const Token& value, AST::FormExp
                         GetParseContext(value), AST::LiteralExpression::String);
         } break;
 
-        case TokenType::IfKW: {
-            return ParseIf(value, parentScope);
+        case TokenType::CondKW: {
+            return ParseCond(value, parentScope);
         }
 
         case TokenType::Symbol: {
@@ -452,7 +480,8 @@ AST::BaseExpressionPtr Parser::ParseGenericForm(const Token& token, AST::FormExp
             auto lambda = ParseDefun(lambdaName, parentScope);
             parentScope.Bindings.emplace_back(std::make_pair(lambdaName.Value, std::move(lambda)));
 
-            Assert(NextToken().IsSymbol(")"), "Unexpected token at the end of function definition");
+            Token lastToken = NextToken();
+            Assert(lastToken.IsSymbol(")"), "Unexpected token at the end of function definition");
             break;
         } else if (nextToken.IsSymbol("(")) {
             body.emplace_back(ParseGenericForm(nextToken, scope));

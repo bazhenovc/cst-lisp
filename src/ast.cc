@@ -40,6 +40,8 @@
 
 #include <llvm/ADT/StringRef.h>
 
+#include <llvm/Support/FormatVariadic.h>
+
 #undef _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
 #pragma warning(pop)
 
@@ -94,7 +96,7 @@ namespace AST
         return baseType;
     }
 
-    llvm::Value* BaseExpression::PerformSafeTypeCast(llvm::Value *value, llvm::Type *desiredType)
+    llvm::Value* BaseExpression::GenerateSafeTypeCast(llvm::Value *value, llvm::Type *desiredType)
     {
         llvm::Type* valueType = value->getType();
         if (valueType != desiredType) {
@@ -152,11 +154,11 @@ namespace AST
         llvm::Value* rhs = RHS->Generate(cc);
 
         if (llvm::Constant::classof(lhs) && !llvm::Constant::classof(rhs)) {
-            lhs = PerformSafeTypeCast(lhs, rhs->getType());
+            lhs = GenerateSafeTypeCast(lhs, rhs->getType());
         } else if (!llvm::Constant::classof(lhs) && llvm::Constant::classof(rhs)) {
-            rhs = PerformSafeTypeCast(rhs, lhs->getType());
+            rhs = GenerateSafeTypeCast(rhs, lhs->getType());
         } else {
-            rhs = PerformSafeTypeCast(rhs, lhs->getType());
+            rhs = GenerateSafeTypeCast(rhs, lhs->getType());
         }
 
         if (false) {}
@@ -270,7 +272,7 @@ namespace AST
 
             // Cast to return type
             if (value != nullptr) {
-                value = PerformSafeTypeCast(value, returnType);
+                value = GenerateSafeTypeCast(value, returnType);
             }
 
             Assert((value == nullptr) || (value != nullptr && value->getType() == returnType),
@@ -304,90 +306,101 @@ namespace AST
 
     //-----------------------------------------------------------------------------------------------------------------
     // If
-    IfExpression::IfExpression(SourceParseContext context, BaseExpressionPtr &&conditionExpression,
-                               BaseExpressionPtr &&thenExpression, BaseExpressionPtr &&elseExpression)
+    CondExpression::CondExpression(SourceParseContext context, std::vector<ConditionAndValue>&& body)
         : BaseExpression(context)
     {
-        ConditionExpression = std::move(conditionExpression);
-        TrueExpression = std::move(thenExpression);
-        ElseExpression = std::move(elseExpression);
+        Body = std::move(body);
     }
 
-    llvm::Value* IfExpression::Generate(CodeGenContext &cc)
+    llvm::Value* CondExpression::Generate(CodeGenContext &cc)
     {
-        llvm::Value* conditionValue = ConditionExpression->Generate(cc);
-        llvm::Value* thenValue = nullptr;
-        llvm::Value* elseValue = nullptr;
-
-        Assert(conditionValue->getType()->isIntegerTy(), "Boolean or integer expected");
-        llvm::IntegerType* intType = static_cast<llvm::IntegerType*>(conditionValue->getType());
-        conditionValue = cc.Builder->CreateICmpEQ(conditionValue,
-                                                  llvm::ConstantInt::get(intType,
-                                                                         llvm::APInt(intType->getBitWidth(), 1, false)));
-
         // Blocks
-        llvm::BasicBlock* thenBlock = llvm::BasicBlock::Create(*cc.Context, "if", cc.Builder->GetInsertBlock()->getParent());
-        llvm::BasicBlock* elseBlock = llvm::BasicBlock::Create(*cc.Context, "else", cc.Builder->GetInsertBlock()->getParent());
-        llvm::BasicBlock* mergeBlock = llvm::BasicBlock::Create(*cc.Context, "next", cc.Builder->GetInsertBlock()->getParent());
+        std::vector<llvm::BasicBlock*> generatedBlocks;
+        generatedBlocks.resize(Body.size() + 1);
 
-        cc.Builder->CreateCondBr(conditionValue, thenBlock, elseBlock);
+        std::vector<llvm::BasicBlock*> generatedCondBlocks;
+        generatedCondBlocks.resize(Body.size() - 1);
 
-        // Emit true block
-        if (TrueExpression) {
-            GeneratedScope localScope = cc.Scope;
-            localScope.RootBlock = thenBlock;
-            cc.Builder->SetInsertPoint(thenBlock);
+        std::vector<llvm::Value*> generatedValues;
+        generatedValues.resize(Body.size());
 
-            CodeGenContext localContext = {
-                localScope,
-                cc.Builder, cc.Module, cc.Context,
-            };
-
-            thenValue = TrueExpression->Generate(localContext);
-            cc.Builder->CreateBr(mergeBlock);
+        // Create condition blocks first
+        llvm::Function* parentFunction = cc.Builder->GetInsertBlock()->getParent();
+        for (size_t i = 0; i < Body.size() - 1; ++i) {
+            generatedCondBlocks[i] = llvm::BasicBlock::Create(*cc.Context, llvm::formatv("cond_{0}_test", i + 1), parentFunction);
         }
 
+        for (size_t i = 0; i < Body.size(); ++i) {
+            generatedBlocks[i] = llvm::BasicBlock::Create(*cc.Context, llvm::formatv("cond_{0}_body", i), parentFunction);
+        }
 
-        // Emit false block
+        // Create merge
+        llvm::BasicBlock* nextBlock = llvm::BasicBlock::Create(*cc.Context, "cond_next", parentFunction);
+        generatedBlocks[generatedBlocks.size() - 1] = nextBlock;
+
+        // Create conditions
+
         {
-            if (ElseExpression) {
-                GeneratedScope localScope = cc.Scope;
-                localScope.RootBlock = elseBlock;
-                cc.Builder->SetInsertPoint(elseBlock);
+            GeneratedScope localScope = cc.Scope;
+            CodeGenContext localContext = {
+                localScope,
+                cc.Builder, cc.Module, cc.Context
+            };
 
-                CodeGenContext localContext = {
-                    localScope,
-                    cc.Builder, cc.Module, cc.Context,
-                };
+            // Generate BRanches
+            for (size_t i = 0; i < Body.size(); ++i) {
+                // Generate condition
+                if (i != generatedCondBlocks.size() && Body[i].Condition != nullptr) {
+                    llvm::Value* condition = Body[i].Condition->Generate(localContext);
+                    Assert(condition->getType()->isIntegerTy(), "Boolean or integer expected");
+                    llvm::IntegerType* intType = static_cast<llvm::IntegerType*>(condition->getType());
+                    condition = cc.Builder->CreateICmpSGT(
+                                condition,
+                                llvm::ConstantInt::get(intType, llvm::APInt(intType->getBitWidth(), 0, false)));
 
-                elseValue = ElseExpression->Generate(localContext);
-                elseValue = PerformSafeTypeCast(elseValue, thenValue->getType());
+                    // Create branch
+                    cc.Builder->CreateCondBr(condition, generatedBlocks[i], generatedCondBlocks[i]);
+
+                    // Update blocks
+                    localScope.RootBlock = generatedCondBlocks[i];
+                    cc.Builder->SetInsertPoint(generatedCondBlocks[i]);
+                } else {
+                    cc.Builder->CreateBr(generatedBlocks[i]);
+                }
             }
-            cc.Builder->SetInsertPoint(elseBlock);
-            cc.Builder->CreateBr(mergeBlock);
+
+            // Generate bodies
+            for (size_t i = 0; i < Body.size(); ++i) {
+                localScope.RootBlock = generatedBlocks[i];
+                cc.Builder->SetInsertPoint(generatedBlocks[i]);
+
+                llvm::Value* value = Body[i].Value->Generate(localContext);
+                cc.Builder->CreateBr(nextBlock);
+                generatedValues[i] = value;
+            }
         }
 
         // This is probably the only place that modifies the insert point and does not restore it back
-        cc.Builder->SetInsertPoint(mergeBlock);
-        cc.Scope.RootBlock = mergeBlock;
+        cc.Builder->SetInsertPoint(nextBlock);
+        cc.Scope.RootBlock = nextBlock;
 
-        llvm::PHINode* phi = cc.Builder->CreatePHI(thenValue->getType(), elseValue ? 2 : 1);
-        phi->addIncoming(thenValue, thenBlock);
-        if (elseValue != nullptr) {
-            phi->addIncoming(elseValue, elseBlock);
+        llvm::Type* desiredType = generatedValues[0]->getType();
+        llvm::PHINode* phi = cc.Builder->CreatePHI(desiredType, uint32_t(Body.size()));
+        for (size_t i = 0; i < Body.size(); ++i) {
+            phi->addIncoming(GenerateSafeTypeCast(generatedValues[i], desiredType), generatedBlocks[i]);
         }
 
         return phi;
     }
 
-    void IfExpression::DebugPrint(int indent)
+    void CondExpression::DebugPrint(int indent)
     {
         BaseExpression::DebugPrint(indent);
-        if (TrueExpression) {
-            TrueExpression->DebugPrint(indent + 1);
-        }
-        if (ElseExpression) {
-            ElseExpression->DebugPrint(indent + 1);
+        for (auto& bodyItem: Body) {
+            if (bodyItem.Condition != nullptr) {
+                bodyItem.Condition->DebugPrint(indent + 1);
+            }
+            bodyItem.Value->DebugPrint(indent + 1);
         }
     }
 
@@ -444,7 +457,7 @@ namespace AST
                     std::vector<llvm::Value*> arguments;
                     for (size_t i = 1; i < Body.size(); ++i) {
                         llvm::Type* expectedType = (functionValue->arg_begin() + (i - 1))->getType();
-                        llvm::Value* argumentValue = PerformSafeTypeCast(Body[i]->Generate(localContext), expectedType);
+                        llvm::Value* argumentValue = GenerateSafeTypeCast(Body[i]->Generate(localContext), expectedType);
                         arguments.emplace_back(argumentValue);
                     }
 

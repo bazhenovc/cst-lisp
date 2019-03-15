@@ -44,7 +44,8 @@ enum class TokenType
     DefunKW,
     DefineKW,
     LetKW,
-    IfKW,
+    CondKW,
+    ElseKW,
     //ModuleKW,
     //StructKW,
     //FunctionKW,
@@ -113,7 +114,7 @@ struct Parser
     AST::LambdaExpression::LambdaSignature ParseLambdaSignature();
 
     AST::BaseExpressionPtr ParseLambda(const Token& lambdaToken, AST::FormExpression::FormScope& parentScope);
-    AST::BaseExpressionPtr ParseIf(const Token& value, AST::FormExpression::FormScope& parentScope);
+    AST::BaseExpressionPtr ParseCond(const Token& condToken, AST::FormExpression::FormScope& parentScope);
     AST::BaseExpressionPtr ParseDefun(const Token& lambdaName, AST::FormExpression::FormScope& parentScope);
 
     AST::BaseExpressionPtr ParseSingleValue(const Token& value, AST::FormExpression::FormScope& parentScope);
