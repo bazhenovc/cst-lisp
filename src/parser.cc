@@ -164,11 +164,11 @@ Token Lexer::NextToken(LexerState& state) const
     }
 
     // something that looks like a symbol, return it as-is
-    if (        c == '+' || c == '-' || c == '*' || c == '/'
-                ||      c == '(' || c == ')' || c == '<' || c == '>'
+    if (                c == '+' || c == '-' || c == '*' || c == '/'
+                ||      c == '=' || c == '<' || c == '>'
                 ||      c == '^' || c == '|' || c == '&' || c == '!'
-                ||      c == '=' || c == ':' || c == ';'
-                ||      c == '[' || c == ']') {
+                ||      c == ':' || c == ';'
+                ||      c == '(' || c == ')' || c == '[' || c == ']') {
         return { TokenType::Symbol, GetSource(state, lastCharIndex) };
     }
 

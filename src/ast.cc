@@ -196,6 +196,30 @@ namespace AST
             } else if (lhs->getType()->isFloatingPointTy()) {
                 return cc.Builder->CreateFDiv(lhs, rhs);
             }
+        } else if (Operator == "=") {
+            if (lhs->getType()->isStructTy()) {
+                // TODO: structs support
+            } else if (lhs->getType()->isIntegerTy()) {
+                return cc.Builder->CreateICmpEQ(lhs, rhs);
+            } else if (lhs->getType()->isFloatingPointTy()) {
+                return cc.Builder->CreateFCmpOEQ(lhs, rhs); // TODO: OGT or UGT? OGT supports QNaN
+            }
+        } else if (Operator == ">") {
+            if (lhs->getType()->isStructTy()) {
+                // TODO: structs support
+            } else if (lhs->getType()->isIntegerTy()) {
+                return cc.Builder->CreateICmpSGT(lhs, rhs);
+            } else if (lhs->getType()->isFloatingPointTy()) {
+                return cc.Builder->CreateFCmpOGT(lhs, rhs);
+            }
+        } else if (Operator == "<") {
+            if (lhs->getType()->isStructTy()) {
+                // TODO: structs suppport
+            } else if (lhs->getType()->isIntegerTy()) {
+                return cc.Builder->CreateICmpSLT(lhs, rhs);
+            } else if (lhs->getType()->isFloatingPointTy()) {
+                return cc.Builder->CreateFCmpOLT(lhs, rhs);
+            }
         }
 
         Assert(false, "Unexpected binary operator");
@@ -270,18 +294,22 @@ namespace AST
                 value = body->Generate(localContext);
             }
 
-            // Cast to return type
-            if (value != nullptr) {
-                value = GenerateSafeTypeCast(value, returnType);
-            }
-
-            Assert((value == nullptr) || (value != nullptr && value->getType() == returnType),
-                   "Function return type does not match expression type");
-
-            if (value == nullptr || value->getType()->isVoidTy()) {
+            if (functionType->getReturnType()->isVoidTy()) {
                 cc.Builder->CreateRetVoid();
             } else {
-                cc.Builder->CreateRet(value); // TODO: return statements
+                // Cast to return type
+                if (value != nullptr) {
+                    value = GenerateSafeTypeCast(value, returnType);
+                }
+
+                Assert((value == nullptr) || (value != nullptr && value->getType() == returnType),
+                       "Function return type does not match expression type");
+
+                if (value == nullptr || value->getType()->isVoidTy()) {
+                    cc.Builder->CreateRetVoid();
+                } else {
+                    cc.Builder->CreateRet(value); // TODO: return statements
+                }
             }
 
             // Restore root block

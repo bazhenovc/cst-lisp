@@ -53,29 +53,12 @@
   (let ([x (lambda (f16) i32 (rand))])
     (x 0.2)))
 
-;(defun test-boolean () boolean
-;    (< 0.5 0.2))
-
-;(defun test-if ((in_value f16)) f16
-;  (if (< in_value 0.5)
-;    in_value
-;    (* in_value 2))
-
-;(defun test-if () i32
-;  (if 1
-;    (puts "true")
-;    (puts "false")))
-;
-;(defun test-if-let () i32
-;  (let ([x (if 1 "true" "false")])
-;    (puts x)))
-
-(defun test-cond-if () i32
+(defun test-cond-if () void
   (cond
     [0 (puts "cond failed")]
     [else (puts "cond passed")]))
 
-(defun test-cond () i32
+(defun test-cond () void
   (cond
     [0 (puts "0 is false, this should not happen")]
     [1 (puts "1 is true")]
@@ -89,8 +72,6 @@
 
 (defun main () i32
   (puts "Hello World")
-  ;(test-if)
-  ;(test-if-let)
   (test-cond-if)
   (test-cond)
   (puts string-constant)
