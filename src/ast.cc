@@ -374,9 +374,12 @@ namespace AST
                 localScope.RootBlock = generatedBlocks[i];
                 cc.Builder->SetInsertPoint(generatedBlocks[i]);
 
-                llvm::Value* value = Body[i].Value->Generate(localContext);
+                for (auto& value: Body[i].Values) {
+                    llvm::Value* generatedValue = value->Generate(localContext);
+                    generatedValues[i] = generatedValue;
+                }
+
                 cc.Builder->CreateBr(nextBlock);
-                generatedValues[i] = value;
             }
         }
 
@@ -400,7 +403,9 @@ namespace AST
             if (bodyItem.Condition != nullptr) {
                 bodyItem.Condition->DebugPrint(indent + 1);
             }
-            bodyItem.Value->DebugPrint(indent + 1);
+            for (auto& bodyValueItem: bodyItem.Values) {
+                bodyValueItem->DebugPrint(indent + 1);
+            }
         }
     }
 

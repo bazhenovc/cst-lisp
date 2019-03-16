@@ -1,3 +1,25 @@
+;;  MIT License
+;;
+;;  Copyright (c) 2019 Kyrylo Bazhenov
+;;
+;;  Permission is hereby granted, free of charge, to any person obtaining a copy
+;;  of this software and associated documentation files (the "Software"), to deal
+;;  in the Software without restriction, including without limitation the rights
+;;  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+;;  copies of the Software, and to permit persons to whom the Software is
+;;  furnished to do so, subject to the following conditions:
+;;
+;;  The above copyright notice and this permission notice shall be included in all
+;;  copies or substantial portions of the Software.
+;;
+;;  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+;;  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+;;  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+;;  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+;;  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+;;  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+;;  SOFTWARE.
+
 ; Various imports from libc and others
 
 (defun rand () i32)         ; libc: int rand(void)
@@ -19,6 +41,7 @@
   ((lambda () f32
     ((lambda ([root_value f32]) f32
       ((lambda ([in_value f32]) f32
+        (puts "test-lambda")
         (+ (/ in_value (get-float)) (* (+ 1.22 in_value) 2))) 42.5)) (named-lambda)))))
 
 (defun test-scope () u32
@@ -58,7 +81,8 @@
     [1 (puts "1 is true")]
     [2 (puts "2 is true, but this should not happen")]
     [3 (puts "3 is also true, however this is shoudl not happen too")]
-    [else (puts "else, we'll never see this one")]))
+    [else (puts "else, we'll never see this one")
+          (puts "if we ever see this message - something is seriously broken")]))
 
 (defun test-func-with-args ([x f32] [y f64]) f32
   y x)

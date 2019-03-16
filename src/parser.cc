@@ -264,7 +264,8 @@ AST::BaseExpressionPtr Parser::ParseLet(AST::FormExpression::FormScope& parentSc
 
 AST::BaseExpressionPtr Parser::ParseFormOrValue(const Token& nextToken, AST::FormExpression::FormScope& parentScope)
 {
-    return nextToken.IsSymbol("(") ?
+    bool isNestedForm = nextToken.IsSymbol("(");
+    return isNestedForm ?
                 ParseGenericForm(nextToken, parentScope) : ParseSingleValue(nextToken, parentScope);
 }
 
@@ -353,11 +354,16 @@ AST::BaseExpressionPtr Parser::ParseCond(const Token& condToken, AST::FormExpres
             bodyItem.Condition = ParseFormOrValue(conditionToken, parentScope);
         }
 
-        bodyItem.Value = ParseFormOrValue(NextToken(), parentScope);
-        condBody.emplace_back(std::move(bodyItem));
+        // Parse cond body
+        while (Token bodyValueToken = NextToken()) {
+            if (bodyValueToken.IsSymbol("]")) {
+                break;
+            }
 
-        Token lastToken = NextToken();
-        Assert(lastToken.IsSymbol("]"), "Unexpected symbol, expected '[");
+            bodyItem.Values.emplace_back(ParseFormOrValue(bodyValueToken, parentScope));
+        }
+
+        condBody.emplace_back(std::move(bodyItem));
 
         if (isLastItem) {
             Assert(PeekToken().IsSymbol(")"), "Else clause should always be the last one");

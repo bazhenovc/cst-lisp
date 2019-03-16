@@ -134,7 +134,7 @@ namespace AST
         struct ConditionAndValue
         {
             BaseExpressionPtr Condition;
-            BaseExpressionPtr Value;
+            std::vector<BaseExpressionPtr> Values;
         };
 
         std::vector<ConditionAndValue> Body;
