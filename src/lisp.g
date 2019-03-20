@@ -79,6 +79,8 @@ binary
 
 binaryOperator
     : '+'|'-'|'*'|'/'
+    | '='|'>'|'<'
+    | '~='|'>='|'<='
     ;
 
 WHITESPACE

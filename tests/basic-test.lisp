@@ -68,16 +68,56 @@
     [else (puts "else, we'll never see this one")
           (puts "if we ever see this message - something is seriously broken")]))
 
+(defun test-integer-binary-operators () void
+  (puts "Testing integer binary operators")
+  (cond
+    [(= 5 5) (puts "5 equals 5")] [else (puts "integer equality operator failed")])
+  (cond
+    [(~= 1 5) (puts "1 not-equals 5")] [else (puts "integer not-equality operator failed")])
+  (cond
+    [(> 9 3) (puts "9 is greater than 3")] [else (puts "integer greater-than operator failed")])
+  (cond
+    [(< 2 4) (puts "2 is lesser than 4")] [else (puts "integer lesser-than operator failed")])
+  (cond
+    [(>= 7 5) (puts "7 equals or greater than 5")] [else (puts "integer greater-equals operator failed")])
+  (cond
+    [(>= 7 7) (puts "7 equals or greater than 7")] [else (puts "integer greater-equals operator failed")])
+  (cond
+    [(<= 5 7) (puts "5 equals or lesser than 7")] [else (puts "integer lesser-equals operator failed")])
+  (cond
+    [(<= 7 7) (puts "7 equals or lesser than 7")] [else (puts "integer lesser-equals operator failed")]))
+
+(defun test-float-binary-operators () void
+  (puts "Testing floating-point binary operators")
+  (cond
+    [(= 5.0 5.0) (puts "5.0 equals 5.0")] [else (puts "float equality operator failed")])
+  (cond
+    [(~= 1.8 5.14) (puts "1.8 not-equals 5.14")] [else (puts "float not-equality operator failed")])
+  (cond
+    [(> 9.2 3.3) (puts "9.2 is greater than 3.3")] [else (puts "float greater-than operator failed")])
+  (cond
+    [(< 2.2 4.1) (puts "2.2 is lesser than 4.1")] [else (puts "float lesser-than operator failed")])
+  (cond
+    [(>= 7.1 5.2) (puts "7.1 equals or greater than 5.2")] [else (puts "float greater-equals operator failed")])
+  (cond
+    [(>= 7.0 7.0) (puts "7.0 equals or greater than 7.0")] [else (puts "float greater-equals operator failed")])
+  (cond
+    [(<= 5.0 7.0) (puts "5.0 equals or lesser than 7.0")] [else (puts "float lesser-equals operator failed")])
+  (cond
+    [(<= 7.0 7.0) (puts "7.0 equals or lesser than 7.0")] [else (puts "float lesser-equals operator failed")]))
+
 (defun test-func-with-args ([x f32] [y f64]) f32
   y x)
 
 (defun main () i32
   (puts "Hello World")
-  (test-cond-if)
-  (test-cond)
   (puts string-constant)
   (test-scope)
   (test-scope-lambda)
   (test-func-with-args 3.14 1.12)
+  (test-cond-if)
+  (test-cond)
+  (test-integer-binary-operators)
+  (test-float-binary-operators)
   (let ([x (test-lambda 15041993)])
     0))

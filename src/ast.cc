@@ -205,13 +205,29 @@ namespace AST
             } else if (lhs->getType()->isFloatingPointTy()) {
                 return cc.Builder->CreateFCmpOEQ(lhs, rhs); // TODO: OGT or UGT? OGT supports QNaN
             }
+        } else if (Operator == "~=") {
+            if (lhs->getType()->isStructTy()) {
+                // TODO: structs support
+            } else if (lhs->getType()->isIntegerTy()) {
+                return cc.Builder->CreateICmpNE(lhs, rhs);
+            } else if (lhs->getType()->isFloatingPointTy()) {
+                return cc.Builder->CreateFCmpONE(lhs, rhs); // TODO: OGT or UGT? OGT supports QNaN
+            }
         } else if (Operator == ">") {
             if (lhs->getType()->isStructTy()) {
                 // TODO: structs support
             } else if (lhs->getType()->isIntegerTy()) {
-                return cc.Builder->CreateICmpSGT(lhs, rhs);
+                return cc.Builder->CreateICmpSGT(lhs, rhs); // TODO: signed/unsigned comparison
             } else if (lhs->getType()->isFloatingPointTy()) {
                 return cc.Builder->CreateFCmpOGT(lhs, rhs);
+            }
+        } else if (Operator == ">=") {
+            if (lhs->getType()->isStructTy()) {
+                // TODO: structs support
+            } else if (lhs->getType()->isIntegerTy()) {
+                return cc.Builder->CreateICmpSGE(lhs, rhs);
+            } else if (lhs->getType()->isFloatingPointTy()) {
+                return cc.Builder->CreateFCmpOGE(lhs, rhs);
             }
         } else if (Operator == "<") {
             if (lhs->getType()->isStructTy()) {
@@ -220,6 +236,14 @@ namespace AST
                 return cc.Builder->CreateICmpSLT(lhs, rhs);
             } else if (lhs->getType()->isFloatingPointTy()) {
                 return cc.Builder->CreateFCmpOLT(lhs, rhs);
+            }
+        } else if (Operator == "<=") {
+            if (lhs->getType()->isStructTy()) {
+                // TODO: structs suppport
+            } else if (lhs->getType()->isIntegerTy()) {
+                return cc.Builder->CreateICmpSLE(lhs, rhs);
+            } else if (lhs->getType()->isFloatingPointTy()) {
+                return cc.Builder->CreateFCmpOLE(lhs, rhs);
             }
         }
 
@@ -246,8 +270,6 @@ namespace AST
 
     llvm::Value* LambdaExpression::Generate(CodeGenContext &cc)
     {
-        llvm::Function::LinkageTypes linkage = llvm::Function::ExternalLinkage;
-
         // Resolve return and argument types
         llvm::Type* returnType = ResolveType(Signature.ReturnType, cc.Scope);
         std::vector<llvm::Type*> argTypes;
@@ -257,7 +279,7 @@ namespace AST
 
         // Create function
         llvm::FunctionType* functionType = llvm::FunctionType::get(returnType, argTypes, false);
-        llvm::Function* functionValue = llvm::Function::Create(functionType, linkage,
+        llvm::Function* functionValue = llvm::Function::Create(functionType, llvm::Function::ExternalLinkage,
                                                                ToLLVM(ParseContext.Source), cc.Module);
 
         // Create body
@@ -323,6 +345,7 @@ namespace AST
             } else {
                 functionValue->setVisibility(llvm::Function::HiddenVisibility);
                 functionValue->setDLLStorageClass(llvm::Function::DefaultStorageClass);
+                functionValue->setLinkage(llvm::Function::InternalLinkage);
             }
         } else {
             functionValue->setDLLStorageClass(llvm::Function::DLLImportStorageClass);
@@ -390,7 +413,7 @@ namespace AST
                     llvm::Value* condition = Body[i].Condition->Generate(localContext);
                     Assert(condition->getType()->isIntegerTy(), "Boolean or integer expected");
                     llvm::IntegerType* intType = static_cast<llvm::IntegerType*>(condition->getType());
-                    condition = cc.Builder->CreateICmpSGT(
+                    condition = cc.Builder->CreateICmpUGT(
                                 condition,
                                 llvm::ConstantInt::get(intType, llvm::APInt(intType->getBitWidth(), 0, false)));
 

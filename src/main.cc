@@ -268,7 +268,17 @@ public:
             AST::SourceParseContext parseContext = { CopyString(integerLiteral), context->getStart()->getLine() };
             expr = std::make_unique<AST::LiteralExpression>(parseContext, AST::LiteralExpression::Integer);
         } else if (stringLiteral != nullptr) {
-            AST::SourceParseContext parseContext = { CopyString(stringLiteral), context->getStart()->getLine() };
+            std::string_view literalString = CopyString(stringLiteral);
+
+            // Remove quotes
+            if (!literalString.empty()) {
+                assert(literalString[0] == '\"' && literalString[literalString.size() - 1] == '\"');
+                assert(literalString.size() >= 2);
+                literalString.remove_prefix(1);
+                literalString.remove_suffix(1);
+            }
+
+            AST::SourceParseContext parseContext = { literalString, context->getStart()->getLine() };
             expr = std::make_unique<AST::LiteralExpression>(parseContext, AST::LiteralExpression::String);
         }
         return expr;
