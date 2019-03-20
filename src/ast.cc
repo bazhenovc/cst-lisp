@@ -73,7 +73,7 @@ namespace AST
     void BaseExpression::Assert(bool condition, std::string_view message)
     {
         if (!condition) {
-            std::cerr << message << " at line " << ParseContext.LineNumber + 1 << std::endl
+            std::cerr << message << " at line " << ParseContext.LineNumber << std::endl
                       << ParseContext.Source << std::endl;
 #ifdef _WIN32
             if (IsDebuggerPresent()) {
@@ -137,7 +137,8 @@ namespace AST
     void BaseExpression::DebugPrint(int indent)
     {
         std::cerr << std::setfill(' ') << std::setw(indent)
-                  << indent << "::" << typeid(*this).name() << "::" << ParseContext.Source << std::endl;
+                  << indent << "/" << ParseContext.LineNumber << "::"
+                  << typeid(*this).name() << "::" << ParseContext.Source << std::endl;
     }
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -235,11 +236,12 @@ namespace AST
 
     //-----------------------------------------------------------------------------------------------------------------
     // FunctionDecl
-    LambdaExpression::LambdaExpression(SourceParseContext context, LambdaSignature &&signature)
+    LambdaExpression::LambdaExpression(SourceParseContext context, LambdaSignature &&signature,
+                                       std::vector<BaseExpressionPtr>&& body)
         : BaseExpression(context)
     {
         Signature = std::move(signature);
-        SourceExpression = this;
+        Body = std::move(body);
     }
 
     llvm::Value* LambdaExpression::Generate(CodeGenContext &cc)
@@ -315,7 +317,13 @@ namespace AST
             // Restore root block
             cc.Builder->SetInsertPoint(cc.Scope.RootBlock);
 
-            //functionValue->setVisibility(llvm::Function::HiddenVisibility);
+            if (ParseContext.Source == "main")  { // TODO: explicit dll storage class for functions
+                functionValue->setDLLStorageClass(llvm::Function::DefaultStorageClass);
+                functionValue->setVisibility(llvm::Function::DefaultVisibility);
+            } else {
+                functionValue->setVisibility(llvm::Function::HiddenVisibility);
+                functionValue->setDLLStorageClass(llvm::Function::DefaultStorageClass);
+            }
         } else {
             functionValue->setDLLStorageClass(llvm::Function::DLLImportStorageClass);
             functionValue->setVisibility(llvm::Function::DefaultVisibility);
@@ -439,37 +447,29 @@ namespace AST
 
     //-----------------------------------------------------------------------------------------------------------------
     // Form
-    FormExpression::FormExpression(SourceParseContext parseContext,
-                                   std::vector<BaseExpressionPtr> &&arguments, FormScope&& scope)
+    FunctionCallExpression::FunctionCallExpression(SourceParseContext parseContext,
+                                                   BaseExpressionPtr&& functionExpr,
+                                                   std::vector<BaseExpressionPtr> &&arguments)
         : BaseExpression(parseContext)
     {
-        Body = std::move(arguments);
-        Scope = std::move(scope);
-        for (auto& argument: Body) {
-            argument->Parent = this;
-        }
+        FunctionExpr = std::move(functionExpr);
+        FunctionArguments = std::move(arguments);
     }
 
-    bool FormExpression::IsDeclaredInThisForm(BaseExpression *expression) const
-    {
-        // TODO: refactor this
-        return expression->SourceExpression ? (Body[0]->SourceExpression == this || Body[0]->SourceExpression->Parent == this) : false;
-    }
-
-    llvm::Value* FormExpression::Generate(CodeGenContext &cc)
+    llvm::Value* FunctionCallExpression::Generate(CodeGenContext &cc)
     {
         // Generate scope
         GeneratedScope generatedScope = cc.Scope;
-        for (const auto& expr: Scope.Bindings) {
-            Assert(generatedScope.Bindings.find(expr.first) == generatedScope.Bindings.end(),
-                   "Conflicting binding name in form scope");
-
-            CodeGenContext localContext = {
-                generatedScope,
-                cc.Builder, cc.Module, cc.Context
-            };
-            generatedScope.Bindings.insert(std::make_pair(expr.first, expr.second->Generate(localContext)));
-        }
+        //for (const auto& expr: Scope.Bindings) {
+        //    Assert(generatedScope.Bindings.find(expr.first) == generatedScope.Bindings.end(),
+        //           "Conflicting binding name in form scope");
+        //
+        //    CodeGenContext localContext = {
+        //        generatedScope,
+        //        cc.Builder, cc.Module, cc.Context
+        //    };
+        //    generatedScope.Bindings.insert(std::make_pair(expr.first, expr.second->Generate(localContext)));
+        //}
 
         CodeGenContext localContext = {
             std::move(generatedScope),
@@ -477,43 +477,41 @@ namespace AST
         };
 
         // Generate body
-        if (!Body.empty()) {
-            llvm::Value* value = Body[0]->Generate(localContext);
+        Assert(FunctionExpr != nullptr, "Empty function call");
+        llvm::Value* value = FunctionExpr->Generate(localContext);
 
-            if (value != nullptr) {
-                llvm::Type* valueType = value->getType();
-                bool isFunction = valueType->isPointerTy() && valueType->getPointerElementType()->isFunctionTy();
-                if (isFunction && !IsDeclaredInThisForm(Body[0].get())) {
-                    llvm::Function* functionValue = static_cast<llvm::Function*>(value);
-                    Assert((Body.size() - 1) == functionValue->arg_size(), "Unexpected amount of function arguments");
+        if (value != nullptr) {
+            llvm::Type* valueType = value->getType();
+            bool isFunction = valueType->isPointerTy() && valueType->getPointerElementType()->isFunctionTy();
+            Assert(isFunction, "Function expected");
 
-                    std::vector<llvm::Value*> arguments;
-                    for (size_t i = 1; i < Body.size(); ++i) {
-                        llvm::Type* expectedType = (functionValue->arg_begin() + (i - 1))->getType();
-                        llvm::Value* argumentValue = GenerateSafeTypeCast(Body[i]->Generate(localContext), expectedType);
-                        arguments.emplace_back(argumentValue);
-                    }
+            llvm::Function* functionValue = static_cast<llvm::Function*>(value);
+            Assert(FunctionArguments.size() == functionValue->arg_size(),
+                   "Unexpected amount of function arguments");
 
-                    return cc.Builder->CreateCall(functionValue, arguments);
-                }
-
-                Assert(Body.size() == 1, "Form has extra arguments which will be ignored");
-                return value;
+            std::vector<llvm::Value*> arguments;
+            for (size_t i = 0; i < FunctionArguments.size(); ++i) {
+                llvm::Type* expectedType = (functionValue->arg_begin() + i)->getType();
+                llvm::Value* argumentValue = GenerateSafeTypeCast(
+                            FunctionArguments[i]->Generate(localContext), expectedType);
+                arguments.emplace_back(argumentValue);
             }
+
+            return cc.Builder->CreateCall(functionValue, arguments);
         }
 
         //Assert(!Scope.Bindings.empty(), "Empty form");
         return nullptr;
     }
 
-    void FormExpression::DebugPrint(int indent)
+    void FunctionCallExpression::DebugPrint(int indent)
     {
         BaseExpression::DebugPrint(indent);
-        for (auto& expr: Scope.Bindings) {
-            expr.second->DebugPrint(indent + 1);
-        }
-        for (auto& body: Body) {
-            body->DebugPrint(indent + 1);
+        if (FunctionExpr) {
+            FunctionExpr->DebugPrint(indent + 1);
+            for (auto& arg: FunctionArguments) {
+                arg->DebugPrint(indent + 1);
+            }
         }
     }
 

@@ -78,11 +78,14 @@ namespace AST
 
     // Expressions
 
+    struct ExpressionScope
+    {
+        std::vector<std::pair<std::string_view, BaseExpressionPtr>> Bindings;
+    };
+
     struct BaseExpression
     {
         SourceParseContext  ParseContext;
-        BaseExpression*     Parent = nullptr;
-        BaseExpression*     SourceExpression = nullptr;
 
         BaseExpression(SourceParseContext context);
 
@@ -123,7 +126,8 @@ namespace AST
         LambdaSignature                 Signature;
         std::vector<BaseExpressionPtr>  Body;
 
-        LambdaExpression(SourceParseContext context, LambdaSignature&& signature);
+        LambdaExpression(SourceParseContext context, LambdaSignature&& signature,
+                         std::vector<BaseExpressionPtr>&& body);
 
         virtual llvm::Value* Generate(CodeGenContext& cc) override;
         virtual void DebugPrint(int indent) override;
@@ -145,21 +149,14 @@ namespace AST
         virtual void DebugPrint(int indent) override;
     };
 
-    struct FormExpression : public BaseExpression
+    struct FunctionCallExpression : public BaseExpression
     {
-        struct FormScope
-        {
-            std::vector<std::pair<std::string_view, BaseExpressionPtr>> Bindings;
-        };
+        BaseExpressionPtr               FunctionExpr;
+        std::vector<BaseExpressionPtr>  FunctionArguments;
+        //ExpressionScope                 Scope;
 
-        std::vector<BaseExpressionPtr>  Body;
-        FormScope                       Scope;
-
-        FormExpression(SourceParseContext parseContext,
-                       std::vector<BaseExpressionPtr>&& arguments,
-                       FormScope&& scope);
-
-        bool IsDeclaredInThisForm(BaseExpression* expression) const;
+        FunctionCallExpression(SourceParseContext parseContext,
+                BaseExpressionPtr&& functionExpr, std::vector<BaseExpressionPtr>&& arguments);
 
         virtual llvm::Value* Generate(CodeGenContext& cc) override;
         virtual void DebugPrint(int indent) override;

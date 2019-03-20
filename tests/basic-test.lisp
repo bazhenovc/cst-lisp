@@ -31,8 +31,8 @@
 (define string-constant "This is a string constant")
 (define float-constant 3.14)
 
-(define named-lambda lambda () f32
-  (+ float-constant 2))
+(define named-lambda (lambda () f32
+  (+ float-constant 2)))
 
 (defun get-float () f32
   float-constant)
@@ -42,7 +42,8 @@
     ((lambda ([root_value f32]) f32
       ((lambda ([in_value f32]) f32
         (puts "test-lambda")
-        (+ (/ in_value (get-float)) (* (+ 1.22 in_value) 2))) 42.5)) (named-lambda)))))
+        (+ (/ in_value (get-float))
+           (* (+ 1.22 in_value) 2))) 42.5)) (named-lambda)))))
 
 (defun test-scope () u32
   (let ([x 42])
