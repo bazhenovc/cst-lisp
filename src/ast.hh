@@ -200,6 +200,18 @@ namespace AST
 
         ValueExpression(SourceParseContext parseContext);
 
-        llvm::Value* Generate(CodeGenContext &cc) override;
+        virtual llvm::Value* Generate(CodeGenContext &cc) override;
+    };
+
+    struct TypeCastExpression : public BaseExpression
+    {
+        AST::BaseExpressionPtr  OriginalExpression;
+        ExpressionType          DesiredType;
+
+        TypeCastExpression(SourceParseContext parseContext,
+                           BaseExpressionPtr&& originalExpression,
+                           ExpressionType desiredType);
+
+        virtual llvm::Value* Generate(CodeGenContext &cc) override;
     };
 }

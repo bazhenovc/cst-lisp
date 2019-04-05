@@ -64,7 +64,7 @@
     [0 (puts "0 is false, this should not happen")]
     [1 (puts "1 is true")]
     [2 (puts "2 is true, but this should not happen")]
-    [3 (puts "3 is also true, however this is shoudl not happen too")]
+    [3 (puts "3 is also true, however this is should not happen too")]
     [else (puts "else, we'll never see this one")
           (puts "if we ever see this message - something is seriously broken")]))
 
@@ -109,6 +109,10 @@
 (defun test-func-with-args ([x f32] [y f64]) f32
   y x)
 
+(defun test-type-cast () void
+  (let ([typed-constant 255 i8])
+    (cond [(= typed-constant -127) (puts "type cast test passed")] [else (puts "type cast test failed")])))
+
 (defun main () i32
   (puts "Hello World")
   (puts string-constant)
@@ -119,5 +123,6 @@
   (test-cond)
   (test-integer-binary-operators)
   (test-float-binary-operators)
+  (test-type-cast)
   (let ([x (test-lambda 15041993)])
     0))

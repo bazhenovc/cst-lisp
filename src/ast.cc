@@ -682,4 +682,24 @@ namespace AST
 
         return value;
     }
+
+    //-----------------------------------------------------------------------------------------------------------------
+    // TypeCast
+    TypeCastExpression::TypeCastExpression(SourceParseContext parseContext,
+                                           BaseExpressionPtr &&originalExpression,
+                                           ExpressionType desiredType)
+        : BaseExpression(parseContext)
+    {
+        OriginalExpression = std::move(originalExpression);
+        DesiredType = desiredType;
+    }
+
+    llvm::Value* TypeCastExpression::Generate(CodeGenContext &cc)
+    {
+        llvm::Type* generatedType = ResolveType(DesiredType, cc.Scope);
+        llvm::Value* generatedValue = OriginalExpression->Generate(cc);
+
+        // TODO: Support unsafe type casts too
+        return GenerateSafeTypeCast(generatedValue, generatedType);
+    }
 }

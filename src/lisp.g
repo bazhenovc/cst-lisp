@@ -53,7 +53,7 @@ let
     ;
 
 typedValueBinding
-    : '[' IDENTIFIER expression ']'
+    : '[' IDENTIFIER expression typeName? ']'
     ;
 
 typeName
@@ -96,11 +96,11 @@ IDENTIFIER
     ;
 
 FLOAT_LITERAL
-    : Digit+ '.' Digit+
+    : ('+'|'-')? Digit+ '.' Digit+
     ;
 
 INTEGER_LITERAL
-    : Digit+
+    : ('+'|'-')? Digit+
     ;
 
 STRING_LITERAL
@@ -120,5 +120,5 @@ fragment Nondigit
     ;
 
 fragment IdSymbol
-    : '-'|'+'|'*'|'/'|'_'|Nondigit
+    : Nondigit('-'|'+'|'*'|'/'|'_'|Nondigit)*
     ;

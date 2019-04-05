@@ -352,8 +352,8 @@ public:
         for (lispParser::TypedValueBindingContext* bindingContext: context->typedValueBinding()) {
             std::string_view bindingName = CopyString(bindingContext->IDENTIFIER());
             assert(letBindings.find(bindingName) == letBindings.end() && "Conflicting binding");
-            AST::BaseExpressionPtr bindingExpr = std::move(visitExpression(bindingContext->expression()).as<AST::BaseExpressionPtr>());
 
+            AST::BaseExpressionPtr bindingExpr = std::move(visitTypedValueBinding(bindingContext).as<AST::BaseExpressionPtr>());
             letBindings.insert(letBindings.end(), std::make_pair(bindingName, std::move(bindingExpr)));
         }
 
@@ -369,8 +369,17 @@ public:
 
     virtual antlrcpp::Any visitTypedValueBinding(lispParser::TypedValueBindingContext *context) override
     {
-        assert(false && "Should not be called directly"); // TODO: Refactor this
-        return nullptr;
+        lispParser::TypeNameContext* typeName = context->typeName();
+
+        AST::BaseExpressionPtr bindingExpr = std::move(visitExpression(context->expression()).as<AST::BaseExpressionPtr>());
+        if (typeName != nullptr) {
+            AST::ExpressionType bindingType = visitTypeName(typeName).as<AST::ExpressionType>();
+
+            AST::SourceParseContext parseContext = { CopyString(typeName->getStart()), typeName->getStart()->getLine() };
+            bindingExpr = std::make_unique<AST::TypeCastExpression>(parseContext, std::move(bindingExpr), bindingType);
+        }
+
+        return bindingExpr;
     }
 
     virtual antlrcpp::Any visitTypeName(lispParser::TypeNameContext *context) override
