@@ -20,11 +20,12 @@ define
 
 expression
     : constant
+    | callable
     | lambda
     | let
     | cond
+    | loop
     | binary
-    | callable
     ;
 
 constant
@@ -69,8 +70,16 @@ condCondition
     ;
 
 condValue
-    : '[' condCondition expression* ']'
-    | '[' 'else' expression* ']'
+    : '[' condCondition expression+ ']'
+    | '[' 'else' expression+ ']'
+    ;
+
+loop
+    : '(' 'loop' '(' loopBindingExpression* ')' 'do' expression* ')'
+    ;
+
+loopBindingExpression
+    : '[' IDENTIFIER expression typeName expression expression ']'
     ;
 
 binary

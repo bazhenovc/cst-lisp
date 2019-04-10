@@ -51,6 +51,10 @@ public:
 
     virtual antlrcpp::Any visitCondValue(lispParser::CondValueContext *context) = 0;
 
+    virtual antlrcpp::Any visitLoop(lispParser::LoopContext *context) = 0;
+
+    virtual antlrcpp::Any visitLoopBindingExpression(lispParser::LoopBindingExpressionContext *context) = 0;
+
     virtual antlrcpp::Any visitBinary(lispParser::BinaryContext *context) = 0;
 
     virtual antlrcpp::Any visitBinaryOperator(lispParser::BinaryOperatorContext *context) = 0;

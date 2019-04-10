@@ -225,25 +225,28 @@ public:
     virtual antlrcpp::Any visitExpression(lispParser::ExpressionContext *context) override
     {
         lispParser::ConstantContext* constant = context->constant();
+        lispParser::CallableContext* callable = context->callable();
         lispParser::LambdaContext* lambda = context->lambda();
         lispParser::LetContext* let = context->let();
         lispParser::CondContext* cond = context->cond();
+        lispParser::LoopContext* loop = context->loop();
         lispParser::BinaryContext* binary = context->binary();
-        lispParser::CallableContext* callable = context->callable();
+
 
         if (constant != nullptr) {
             return visitConstant(constant);
+        } else if (callable != nullptr) {
+            return visitCallable(callable);
         } else if (lambda != nullptr) {
             return visitLambda(lambda);
         } else if (let != nullptr) {
             return visitLet(let);
         } else if (cond != nullptr) {
             return visitCond(cond);
+        } else if (loop != nullptr) {
+            return visitLoop(loop);
         } else if (binary != nullptr) {
             return visitBinary(binary);
-        } else {
-            assert(callable != nullptr && "Internal parser error: expected <CALLABLE>, got null");
-            return visitCallable(callable);
         }
 
         assert(false && "Internal parser error, unreachable code reached");
@@ -426,6 +429,42 @@ public:
     {
         assert(false && "Should not be called directly"); // TODO: Refactor this
         return nullptr;
+    }
+
+    virtual antlrcpp::Any visitLoop(lispParser::LoopContext *context) override
+    {
+        std::vector<AST::LoopExpression::BindingExpression> bindings;
+        for (lispParser::LoopBindingExpressionContext* bindingContext: context->loopBindingExpression()) {
+            AST::LoopExpression::BindingExpression bindingExpr = std::move(visitLoopBindingExpression(bindingContext).as<AST::LoopExpression::BindingExpression>());
+            //assert(std::find_if(bindings.begin(), bindings.end(), [bindingExpr->Name](AST::LoopExpression::BindingExpression& val) {
+            //    return val.Name == bindingExpr->Name;
+            //}) == bindings.end() && "Conflicting binding");
+
+            bindings.emplace_back(std::move(bindingExpr));
+        }
+
+        std::vector<AST::BaseExpressionPtr> loopBody;
+        for (lispParser::ExpressionContext* bodyContext: context->expression()) {
+            loopBody.emplace_back(std::move(visitExpression(bodyContext).as<AST::BaseExpressionPtr>()));
+        }
+
+        AST::SourceParseContext parseContext = { CopyString(context->getStart()),
+                                                 context->getStart()->getLine() };
+        AST::BaseExpressionPtr loop = std::make_unique<AST::LoopExpression>(parseContext,
+                    std::move(bindings), std::move(loopBody));
+        return loop;
+    }
+
+    virtual antlrcpp::Any visitLoopBindingExpression(lispParser::LoopBindingExpressionContext *context) override
+    {
+        AST::LoopExpression::BindingExpression bindingExpression = {
+            CopyString(context->IDENTIFIER()),
+            std::move(visitExpression(context->expression(0)).as<AST::BaseExpressionPtr>()), // initial value
+            visitTypeName(context->typeName()).as<AST::ExpressionType>(),
+            std::move(visitExpression(context->expression(1)).as<AST::BaseExpressionPtr>()), // exit condition
+            std::move(visitExpression(context->expression(2)).as<AST::BaseExpressionPtr>())
+        };
+        return bindingExpression;
     }
 
     virtual antlrcpp::Any visitBinary(lispParser::BinaryContext *context) override

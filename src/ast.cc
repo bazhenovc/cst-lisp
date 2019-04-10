@@ -442,7 +442,7 @@ namespace AST
             }
         }
 
-        // This is probably the only place that modifies the insert point and does not restore it back
+        // This is the first place that modifies the insert point and does not restore it back
         cc.Builder->SetInsertPoint(nextBlock);
         cc.Scope.RootBlock = nextBlock;
 
@@ -701,5 +701,146 @@ namespace AST
 
         // TODO: Support unsafe type casts too
         return GenerateSafeTypeCast(generatedValue, generatedType);
+    }
+
+    //-----------------------------------------------------------------------------------------------------------------
+    // LoopExpression
+    LoopExpression::LoopExpression(SourceParseContext parseContext,
+                                   std::vector<BindingExpression> &&bindings,
+                                   std::vector<BaseExpressionPtr> &&body)
+        : BaseExpression(parseContext)
+    {
+        Bindings = std::move(bindings);
+        Body = std::move(body);
+    }
+
+    llvm::Value* LoopExpression::Generate(CodeGenContext &cc)
+    {
+        llvm::Function* parentFunction = cc.Builder->GetInsertBlock()->getParent();
+
+        //llvm::BasicBlock* loopStart = llvm::BasicBlock::Create(*cc.Context, "loop_init", parentFunction);
+        llvm::BasicBlock* loopBlock = llvm::BasicBlock::Create(*cc.Context, "loop_body", parentFunction);
+        llvm::BasicBlock* nextBlock = llvm::BasicBlock::Create(*cc.Context, "loop_next", parentFunction);
+
+        // Generate bindings
+        struct GeneratedBinding
+        {
+            std::string_view    Name;
+            llvm::Value*        Value;
+        };
+        std::vector<GeneratedBinding> generatedBindings;
+
+        // Generate initial stores and conditions
+        {
+            GeneratedScope localScope = cc.Scope;
+            for (auto& binding : Bindings) {
+                std::string_view bindingName = binding.Name;
+
+                auto itr = localScope.Bindings.find(bindingName);
+                Assert(itr == localScope.Bindings.end(), "Conflicting binding name");
+
+                llvm::Value* bindingValue = binding.InitialValue->Generate(cc);
+
+                llvm::Type* bindingType = ResolveType(binding.DesiredType, localScope);
+                bindingValue = GenerateSafeTypeCast(bindingValue, bindingType);
+
+                llvm::Value* bindingAlloc = cc.Builder->CreateAlloca(bindingValue->getType());
+                cc.Builder->CreateStore(bindingValue, bindingAlloc);
+
+                generatedBindings.push_back({ bindingName, bindingAlloc });
+                localScope.Bindings.insert({}, { bindingName, bindingValue });
+            }
+
+            CodeGenContext localContext = {
+                std::move(localScope),
+                cc.Builder, cc.Module, cc.Context
+            };
+
+            llvm::Value* loopCondition = nullptr;
+            for (size_t i = 0; i < Bindings.size(); ++i) {
+                llvm::Value* bindingCondition = Bindings[i].ExitCondition->Generate(localContext);
+                Assert(bindingCondition->getType()->isIntegerTy(), "Boolean or integer expected");
+
+                loopCondition = loopCondition == nullptr ?
+                          bindingCondition : cc.Builder->CreateAnd(loopCondition, bindingCondition);
+            }
+
+            cc.Builder->CreateCondBr(loopCondition, loopBlock, nextBlock);
+        }
+
+        // Generate body
+        llvm::Value* bodyValue = nullptr;
+        {
+            GeneratedScope localScope = cc.Scope;
+
+            // Update blocks
+            localScope.RootBlock = loopBlock;
+            cc.Builder->SetInsertPoint(loopBlock);
+
+            // Generate scope and loads
+            for (size_t i = 0; i < Bindings.size(); ++i) {
+                auto itr = localScope.Bindings.find(generatedBindings[i].Name);
+                Assert(itr == localScope.Bindings.end(), "Conflicting binding name");
+
+                llvm::Value* bindingLoad = cc.Builder->CreateLoad(generatedBindings[i].Value);
+                localScope.Bindings.insert(itr, { generatedBindings[i].Name, bindingLoad });
+            }
+
+            CodeGenContext localContext = {
+                std::move(localScope),
+                cc.Builder, cc.Module, cc.Context
+            };
+
+            // Generate actual body
+            for (size_t i = 0; i < Body.size(); ++i) {
+                bodyValue = Body[i]->Generate(localContext);
+            }
+
+            // Generate steps and stores
+            // TODO: Get rid of this copy-paste
+            {
+                GeneratedScope localScope = cc.Scope;
+
+                for (size_t i = 0; i < Bindings.size(); ++i) {
+                    llvm::Value* stepValue = Bindings[i].Body->Generate(localContext);
+                    Assert(stepValue->getType() == generatedBindings[i].Value->getType()->getContainedType(0),
+                           "Type mismatch, loop step value type should match the corresponding binding type");
+                    cc.Builder->CreateStore(stepValue, generatedBindings[i].Value);
+
+                    auto itr = localScope.Bindings.find(generatedBindings[i].Name);
+                    Assert(itr == localScope.Bindings.end(), "Conflicting binding name");
+
+                    localScope.Bindings.insert(itr, { generatedBindings[i].Name, stepValue });
+                }
+
+                CodeGenContext localContext = {
+                    std::move(localScope),
+                    cc.Builder, cc.Module, cc.Context
+                };
+
+                llvm::Value* loopCondition = nullptr;
+                for (size_t i = 0; i < Bindings.size(); ++i) {
+                    llvm::Value* bindingCondition = Bindings[i].ExitCondition->Generate(localContext);
+                    Assert(bindingCondition->getType()->isIntegerTy(), "Boolean or integer expected");
+
+                    loopCondition = loopCondition == nullptr ?
+                              bindingCondition : cc.Builder->CreateAnd(loopCondition, bindingCondition);
+                }
+
+                // Create branches
+                cc.Builder->CreateCondBr(loopCondition, loopBlock, nextBlock);
+            }
+        }
+
+        // This is the second place that modifies the insert point and does not restore it back
+        cc.Builder->SetInsertPoint(nextBlock);
+        cc.Scope.RootBlock = nextBlock;
+
+        // TODO: This block juggling results in weird jumps in generated IR code, needs to be fixed. This could also be caused by LLVM debug printing which sorts blocks in a weird order.
+
+        llvm::Type* desiredType = bodyValue->getType();
+        llvm::PHINode* phi = cc.Builder->CreatePHI(desiredType, 1);
+        phi->addIncoming(bodyValue, loopBlock);
+        return phi;
     }
 }

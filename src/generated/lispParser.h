@@ -15,16 +15,16 @@ public:
     T__0 = 1, T__1 = 2, T__2 = 3, T__3 = 4, T__4 = 5, T__5 = 6, T__6 = 7, 
     T__7 = 8, T__8 = 9, T__9 = 10, T__10 = 11, T__11 = 12, T__12 = 13, T__13 = 14, 
     T__14 = 15, T__15 = 16, T__16 = 17, T__17 = 18, T__18 = 19, T__19 = 20, 
-    WHITESPACE = 21, POINTER_PREFIX = 22, IDENTIFIER = 23, FLOAT_LITERAL = 24, 
-    INTEGER_LITERAL = 25, STRING_LITERAL = 26, LINE_COMMENT = 27
+    T__20 = 21, T__21 = 22, WHITESPACE = 23, POINTER_PREFIX = 24, IDENTIFIER = 25, 
+    FLOAT_LITERAL = 26, INTEGER_LITERAL = 27, STRING_LITERAL = 28, LINE_COMMENT = 29
   };
 
   enum {
     RuleProgram = 0, RuleToplevel = 1, RuleDefun = 2, RuleDefine = 3, RuleExpression = 4, 
     RuleConstant = 5, RuleCallable = 6, RuleParameter = 7, RuleLambda = 8, 
     RuleTypedParameter = 9, RuleLet = 10, RuleTypedValueBinding = 11, RuleTypeName = 12, 
-    RuleCond = 13, RuleCondCondition = 14, RuleCondValue = 15, RuleBinary = 16, 
-    RuleBinaryOperator = 17
+    RuleCond = 13, RuleCondCondition = 14, RuleCondValue = 15, RuleLoop = 16, 
+    RuleLoopBindingExpression = 17, RuleBinary = 18, RuleBinaryOperator = 19
   };
 
   lispParser(antlr4::TokenStream *input);
@@ -53,6 +53,8 @@ public:
   class CondContext;
   class CondConditionContext;
   class CondValueContext;
+  class LoopContext;
+  class LoopBindingExpressionContext;
   class BinaryContext;
   class BinaryOperatorContext; 
 
@@ -122,11 +124,12 @@ public:
     ExpressionContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     ConstantContext *constant();
+    CallableContext *callable();
     LambdaContext *lambda();
     LetContext *let();
     CondContext *cond();
+    LoopContext *loop();
     BinaryContext *binary();
-    CallableContext *callable();
 
 
     virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
@@ -296,6 +299,38 @@ public:
   };
 
   CondValueContext* condValue();
+
+  class  LoopContext : public antlr4::ParserRuleContext {
+  public:
+    LoopContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    std::vector<LoopBindingExpressionContext *> loopBindingExpression();
+    LoopBindingExpressionContext* loopBindingExpression(size_t i);
+    std::vector<ExpressionContext *> expression();
+    ExpressionContext* expression(size_t i);
+
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  LoopContext* loop();
+
+  class  LoopBindingExpressionContext : public antlr4::ParserRuleContext {
+  public:
+    LoopBindingExpressionContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    antlr4::tree::TerminalNode *IDENTIFIER();
+    std::vector<ExpressionContext *> expression();
+    ExpressionContext* expression(size_t i);
+    TypeNameContext *typeName();
+
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  LoopBindingExpressionContext* loopBindingExpression();
 
   class  BinaryContext : public antlr4::ParserRuleContext {
   public:

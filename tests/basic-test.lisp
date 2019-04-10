@@ -113,6 +113,15 @@
   (let ([typed-constant 255 i8])
     (cond [(= typed-constant -127) (puts "type cast test passed")] [else (puts "type cast test failed")])))
 
+(defun test-loop () void
+  (cond
+    [(= 3 ; TODO: This is a very hard problem to solve: what should the following loop return? 3 or 4?
+        (loop ([x 0 i16 (< x 4) (+ x 1)]) do
+          (puts "Loop iteration")
+          x))
+        (puts "loop test passed")]
+    [else (puts "loop test failed")]))
+
 (defun main () i32
   (puts "Hello World")
   (puts string-constant)
@@ -124,5 +133,6 @@
   (test-integer-binary-operators)
   (test-float-binary-operators)
   (test-type-cast)
+  (test-loop)
   (let ([x (test-lambda 15041993)])
     0))

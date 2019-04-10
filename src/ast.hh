@@ -214,4 +214,25 @@ namespace AST
 
         virtual llvm::Value* Generate(CodeGenContext &cc) override;
     };
+
+    struct LoopExpression : public BaseExpression
+    {
+        struct BindingExpression
+        {
+            std::string_view    Name;
+            BaseExpressionPtr   InitialValue;
+            ExpressionType      DesiredType;
+            BaseExpressionPtr   ExitCondition;
+            BaseExpressionPtr   Body;
+        };
+
+        std::vector<BindingExpression>  Bindings;
+        std::vector<BaseExpressionPtr>  Body;
+
+        LoopExpression(SourceParseContext parseContext,
+                       std::vector<BindingExpression>&& bindings,
+                       std::vector<BaseExpressionPtr>&& body);
+
+        virtual llvm::Value* Generate(CodeGenContext &cc) override;
+    };
 }

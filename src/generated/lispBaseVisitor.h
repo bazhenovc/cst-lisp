@@ -79,6 +79,14 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual antlrcpp::Any visitLoop(lispParser::LoopContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual antlrcpp::Any visitLoopBindingExpression(lispParser::LoopBindingExpressionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual antlrcpp::Any visitBinary(lispParser::BinaryContext *ctx) override {
     return visitChildren(ctx);
   }
