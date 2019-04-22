@@ -168,6 +168,7 @@ namespace AST
         else if (Operator == "+") {
             if (lhs->getType()->isStructTy()) {
                 // TODO: structs support
+                Assert(false, "Overloading binary operators for structures is not yet implemented");
             } else if (lhs->getType()->isIntegerTy()) {
                 return cc.Builder->CreateAdd(lhs, rhs);
             } else if (lhs->getType()->isFloatingPointTy()) {
@@ -176,6 +177,7 @@ namespace AST
         } else if (Operator == "-") {
             if (lhs->getType()->isStructTy()) {
                 // TODO: structs support
+                Assert(false, "Overloading binary operators for structures is not yet implemented");
             } else if (lhs->getType()->isIntegerTy()) {
                 return cc.Builder->CreateSub(lhs, rhs);
             } else if (lhs->getType()->isFloatingPointTy()) {
@@ -184,6 +186,7 @@ namespace AST
         } else if (Operator == "*") {
             if (lhs->getType()->isStructTy()) {
                 // TODO: structs support
+                Assert(false, "Overloading binary operators for structures is not yet implemented");
             } else if (lhs->getType()->isIntegerTy()) {
                 return cc.Builder->CreateMul(lhs, rhs);
             } else if (lhs->getType()->isFloatingPointTy()) {
@@ -192,6 +195,7 @@ namespace AST
         } else if (Operator == "/") {
             if (lhs->getType()->isStructTy()) {
                 // TODO: structs support
+                Assert(false, "Overloading binary operators for structures is not yet implemented");
             } else if (lhs->getType()->isIntegerTy()) {
                 return cc.Builder->CreateSDiv(lhs, rhs); // TODO: signed/unsigned division
             } else if (lhs->getType()->isFloatingPointTy()) {
@@ -200,6 +204,7 @@ namespace AST
         } else if (Operator == "=") {
             if (lhs->getType()->isStructTy()) {
                 // TODO: structs support
+                Assert(false, "Overloading binary operators for structures is not yet implemented");
             } else if (lhs->getType()->isIntegerTy()) {
                 return cc.Builder->CreateICmpEQ(lhs, rhs);
             } else if (lhs->getType()->isFloatingPointTy()) {
@@ -208,6 +213,7 @@ namespace AST
         } else if (Operator == "~=") {
             if (lhs->getType()->isStructTy()) {
                 // TODO: structs support
+                Assert(false, "Overloading binary operators for structures is not yet implemented");
             } else if (lhs->getType()->isIntegerTy()) {
                 return cc.Builder->CreateICmpNE(lhs, rhs);
             } else if (lhs->getType()->isFloatingPointTy()) {
@@ -216,6 +222,7 @@ namespace AST
         } else if (Operator == ">") {
             if (lhs->getType()->isStructTy()) {
                 // TODO: structs support
+                Assert(false, "Overloading binary operators for structures is not yet implemented");
             } else if (lhs->getType()->isIntegerTy()) {
                 return cc.Builder->CreateICmpSGT(lhs, rhs); // TODO: signed/unsigned comparison
             } else if (lhs->getType()->isFloatingPointTy()) {
@@ -224,6 +231,7 @@ namespace AST
         } else if (Operator == ">=") {
             if (lhs->getType()->isStructTy()) {
                 // TODO: structs support
+                Assert(false, "Overloading binary operators for structures is not yet implemented");
             } else if (lhs->getType()->isIntegerTy()) {
                 return cc.Builder->CreateICmpSGE(lhs, rhs);
             } else if (lhs->getType()->isFloatingPointTy()) {
@@ -232,6 +240,7 @@ namespace AST
         } else if (Operator == "<") {
             if (lhs->getType()->isStructTy()) {
                 // TODO: structs suppport
+                Assert(false, "Overloading binary operators for structures is not yet implemented");
             } else if (lhs->getType()->isIntegerTy()) {
                 return cc.Builder->CreateICmpSLT(lhs, rhs);
             } else if (lhs->getType()->isFloatingPointTy()) {
@@ -240,6 +249,7 @@ namespace AST
         } else if (Operator == "<=") {
             if (lhs->getType()->isStructTy()) {
                 // TODO: structs suppport
+                Assert(false, "Overloading binary operators for structures is not yet implemented");
             } else if (lhs->getType()->isIntegerTy()) {
                 return cc.Builder->CreateICmpSLE(lhs, rhs);
             } else if (lhs->getType()->isFloatingPointTy()) {
@@ -413,9 +423,10 @@ namespace AST
                     llvm::Value* condition = Body[i].Condition->Generate(localContext);
                     Assert(condition->getType()->isIntegerTy(), "Boolean or integer expected");
                     llvm::IntegerType* intType = static_cast<llvm::IntegerType*>(condition->getType());
-                    condition = cc.Builder->CreateICmpUGT(
-                                condition,
-                                llvm::ConstantInt::get(intType, llvm::APInt(intType->getBitWidth(), 0, false)));
+                    if (intType->getBitWidth() != 1) {
+                        condition = cc.Builder->CreateICmpUGT(condition,
+                                    llvm::ConstantInt::get(intType, llvm::APInt(intType->getBitWidth(), 0, false)));
+                    }
 
                     // Create branch
                     cc.Builder->CreateCondBr(condition, generatedBlocks[i], generatedCondBlocks[i]);
@@ -560,11 +571,13 @@ namespace AST
             Assert(itr == localScope.Bindings.end(), "Conflicting binding name");
 
             llvm::Value* bindingValue = binding.second->Generate(cc);
-            //if (!llvm::Constant::classof(bindingValue)) {
-            //    llvm::Value* allocation = cc.Builder->CreateAlloca(bindingValue->getType());
-            //    cc.Builder->CreateStore(bindingValue, allocation);
-            //    bindingValue = allocation;
-            //}
+            llvm::Type* bindingType = bindingValue->getType();
+
+            if (bindingType->isStructTy()) {// || !llvm::Constant::classof(bindingValue)) {
+                llvm::Value* bindingAlloc = cc.Builder->CreateAlloca(bindingValue->getType());
+                cc.Builder->CreateStore(bindingValue, bindingAlloc);
+                bindingValue = bindingAlloc;
+            }
 
             localScope.Bindings.insert(itr, { bindingName, bindingValue });
         }
@@ -661,17 +674,50 @@ namespace AST
 
     llvm::Value* ValueExpression::Generate(CodeGenContext &cc)
     {
+        std::string_view symbolName = Value;
+        size_t dotIndex = Value.find_first_of('.');
+        if (dotIndex != std::string_view::npos) {
+            symbolName = symbolName.substr(0, dotIndex);
+        }
+
         // TODO: refactor scopes
-        auto itr = cc.Scope.Bindings.find(Value);
+        auto itr = cc.Scope.Bindings.find(symbolName);
         Assert(itr != cc.Scope.Bindings.end(), "Unknown identifier");
 
         llvm::Value* value = (*itr).second;
+        llvm::Type* valueType = value->getType();
+
+        while (dotIndex != std::string_view::npos) {
+            Assert(valueType->getContainedType(0)->isStructTy(), "Value does not seem to be a struct");
+            symbolName = Value.substr(dotIndex + 1, symbolName.size());
+            dotIndex = symbolName.find_first_of('.');
+
+            std::string_view memberName = symbolName;
+            if (dotIndex != std::string_view::npos) {
+                memberName = memberName.substr(0, dotIndex);
+            }
+
+            auto typeInfoItr = cc.Scope.TypeInfoMap.find(valueType->getContainedType(0));
+            Assert(typeInfoItr != cc.Scope.TypeInfoMap.end(), "Value does not seem to be a struct");
+
+            StructTypeInfo& typeInfo = (*typeInfoItr).second;
+            auto memberItr = typeInfo.Members.find(memberName);
+
+            Assert(memberItr != typeInfo.Members.end(), "No member named {} found for struct {}");
+                   //llvm::formatv("No member named {0} found for struct {1}", ToLLVM(symbolName), valueType->getStructName()));
+            StructTypeInfo::Member& member = (*memberItr).second;
+
+            value = cc.Builder->CreateStructGEP(value, member.Index);
+            value = cc.Builder->CreateLoad(value);
+            valueType = value->getType();
+        }
+
         //if (llvm::AllocaInst::classof(value)) {
         //    return cc.Builder->CreateLoad(value);
         //}
 
         // TODO: refactor strings and arrays
-        if (value->getType()->isPointerTy() && value->getType()->getContainedType(0)->isArrayTy()) {
+        if (valueType->isPointerTy() && value->getType()->getContainedType(0)->isArrayTy()) {
             llvm::Value* indices[] = {
                 llvm::ConstantInt::get(llvm::Type::getInt64Ty(*cc.Context), 0),
                 llvm::ConstantInt::get(llvm::Type::getInt64Ty(*cc.Context), 0),
@@ -686,12 +732,12 @@ namespace AST
     //-----------------------------------------------------------------------------------------------------------------
     // TypeCast
     TypeCastExpression::TypeCastExpression(SourceParseContext parseContext,
-                                           BaseExpressionPtr &&originalExpression,
-                                           ExpressionType desiredType)
+                                           ExpressionType desiredType,
+                                           BaseExpressionPtr &&originalExpression)
         : BaseExpression(parseContext)
     {
-        OriginalExpression = std::move(originalExpression);
         DesiredType = desiredType;
+        OriginalExpression = std::move(originalExpression);
     }
 
     llvm::Value* TypeCastExpression::Generate(CodeGenContext &cc)
@@ -842,5 +888,56 @@ namespace AST
         llvm::PHINode* phi = cc.Builder->CreatePHI(desiredType, 1);
         phi->addIncoming(bodyValue, loopBlock);
         return phi;
+    }
+
+    //-----------------------------------------------------------------------------------------------------------------
+    // Struct
+
+    StructExpression::StructExpression(SourceParseContext parseContext,
+                                       std::vector<Member> &&members)
+        : BaseExpression(parseContext)
+    {
+        Members = std::move(members);
+    }
+
+    llvm::Value* StructExpression::Generate(CodeGenContext &cc)
+    {
+        // Create struct type
+        StructTypeInfo typeInfo;
+        std::vector<llvm::Type*> memberTypes;
+        for (size_t i = 0; i < Members.size(); ++i) {
+            llvm::Type* memberType = ResolveType(Members[i].Type, cc.Scope);
+            memberTypes.emplace_back(memberType);
+            typeInfo.Members[Members[i].Name] = { unsigned int(i), memberType };
+        }
+
+        llvm::Type* structType = llvm::StructType::create(*cc.Context, memberTypes,
+                                                          ToLLVM(ParseContext.Source));
+        cc.Scope.TypeInfoMap.insert(std::make_pair(structType, std::move(typeInfo)));
+
+        Assert(cc.Scope.Types.find(ParseContext.Source) == cc.Scope.Types.end(),
+               "Duplicated struct name");
+        cc.Scope.Types.insert(std::make_pair(ParseContext.Source, structType));
+
+        // Create constructor
+        llvm::FunctionType* functionType = llvm::FunctionType::get(structType, memberTypes, false);
+        llvm::Function* functionValue = llvm::Function::Create(functionType, llvm::Function::InternalLinkage,
+                                                               ToLLVM(ParseContext.Source), cc.Module);
+
+        llvm::BasicBlock* block = llvm::BasicBlock::Create(*cc.Context, "__funcbody", functionValue);
+        cc.Builder->SetInsertPoint(block);
+
+        llvm::Value* structAlloc = cc.Builder->CreateAlloca(structType);
+        for (size_t i = 0; i < memberTypes.size(); ++i) {
+            llvm::Value* memberPtr = cc.Builder->CreateStructGEP(structAlloc, unsigned(i));
+            cc.Builder->CreateStore(functionValue->arg_begin() + i, memberPtr);
+        }
+        llvm::Value* structLoad = cc.Builder->CreateLoad(structAlloc);
+        cc.Builder->CreateRet(structLoad);
+
+        cc.Scope.Bindings.insert(std::make_pair(ParseContext.Source, functionValue));
+
+        //return structType;
+        return functionValue;
     }
 }

@@ -110,17 +110,31 @@
   y x)
 
 (defun test-type-cast () void
-  (let ([typed-constant 255 i8])
+  (let ([typed-constant i8 255])
     (cond [(= typed-constant -127) (puts "type cast test passed")] [else (puts "type cast test failed")])))
 
 (defun test-loop () void
   (cond
     [(= 3 ; TODO: This is a very hard problem to solve: what should the following loop return? 3 or 4?
-        (loop ([x 0 i16 (< x 4) (+ x 1)]) do
+        (loop ([x i16 0 (< x 4) (+ x 1)]) do
           (puts "Loop iteration")
           x))
         (puts "loop test passed")]
     [else (puts "loop test failed")]))
+
+(defstruct vector3i
+    [x i32 0]
+    [y i32 0]
+    [z i32 0])
+
+(defun test-struct ([vec vector3i] [vec-ptr &vector3i]) void
+  0)
+
+(defun test-struct-members () void
+  (let ([vec (vector3i 1 2 3)])
+    (cond
+      [(= 6 (+ vec.x (+ vec.y vec.z))) (puts "struct test passed")]
+      [else (puts "struct test failed")])))
 
 (defun main () i32
   (puts "Hello World")
@@ -134,5 +148,6 @@
   (test-float-binary-operators)
   (test-type-cast)
   (test-loop)
+  (test-struct-members)
   (let ([x (test-lambda 15041993)])
     0))

@@ -48,10 +48,22 @@ namespace AST
     struct BaseExpression;
     typedef std::unique_ptr<BaseExpression> BaseExpressionPtr;
 
+    struct StructTypeInfo
+    {
+        struct Member
+        {
+            unsigned int    Index;
+            llvm::Type*     Type;
+        };
+
+        std::unordered_map<std::string_view, Member> Members;
+    };
+
     struct GeneratedScope
     {
         std::unordered_map<std::string_view, llvm::Value*> Bindings;
         std::unordered_map<std::string_view, llvm::Type*> Types;
+        std::unordered_map<llvm::Type*, StructTypeInfo> TypeInfoMap;
         llvm::BasicBlock* RootBlock = nullptr;
     };
 
@@ -81,6 +93,7 @@ namespace AST
     struct ExpressionScope
     {
         std::vector<std::pair<std::string_view, BaseExpressionPtr>> Bindings;
+        std::vector<std::pair<std::string_view, BaseExpressionPtr>> Types;
     };
 
     struct BaseExpression
@@ -205,12 +218,12 @@ namespace AST
 
     struct TypeCastExpression : public BaseExpression
     {
-        AST::BaseExpressionPtr  OriginalExpression;
         ExpressionType          DesiredType;
+        AST::BaseExpressionPtr  OriginalExpression;
 
         TypeCastExpression(SourceParseContext parseContext,
-                           BaseExpressionPtr&& originalExpression,
-                           ExpressionType desiredType);
+                           ExpressionType desiredType,
+                           BaseExpressionPtr&& originalExpression);
 
         virtual llvm::Value* Generate(CodeGenContext &cc) override;
     };
@@ -220,8 +233,8 @@ namespace AST
         struct BindingExpression
         {
             std::string_view    Name;
-            BaseExpressionPtr   InitialValue;
             ExpressionType      DesiredType;
+            BaseExpressionPtr   InitialValue;
             BaseExpressionPtr   ExitCondition;
             BaseExpressionPtr   Body;
         };
@@ -232,6 +245,23 @@ namespace AST
         LoopExpression(SourceParseContext parseContext,
                        std::vector<BindingExpression>&& bindings,
                        std::vector<BaseExpressionPtr>&& body);
+
+        virtual llvm::Value* Generate(CodeGenContext &cc) override;
+    };
+
+    struct StructExpression : public BaseExpression
+    {
+        struct Member
+        {
+            std::string_view    Name;
+            ExpressionType      Type;
+            BaseExpressionPtr   DefaultValue;
+        };
+
+        std::vector<Member> Members;
+
+        StructExpression(SourceParseContext parseContext,
+                         std::vector<Member>&& members);
 
         virtual llvm::Value* Generate(CodeGenContext &cc) override;
     };

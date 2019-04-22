@@ -7,7 +7,7 @@ program
     : toplevel* EOF;
 
 toplevel
-    : (defun|define)
+    : (defun|define|defstruct)
     ;
 
 defun
@@ -16,6 +16,14 @@ defun
 
 define
     : '(' 'define' IDENTIFIER expression ')'
+    ;
+
+defstruct
+    : '(' 'defstruct' IDENTIFIER structMember+ ')'
+    ;
+
+structMember
+    : '[' IDENTIFIER typeName expression? ']'
     ;
 
 expression
@@ -29,7 +37,11 @@ expression
     ;
 
 constant
-    : IDENTIFIER | FLOAT_LITERAL | INTEGER_LITERAL | STRING_LITERAL
+    : symbolReference | FLOAT_LITERAL | INTEGER_LITERAL | STRING_LITERAL
+    ;
+
+symbolReference
+    : IDENTIFIER ('.' IDENTIFIER)*
     ;
 
 callable
@@ -54,7 +66,7 @@ let
     ;
 
 typedValueBinding
-    : '[' IDENTIFIER expression typeName? ']'
+    : '[' IDENTIFIER typeName? expression ']'
     ;
 
 typeName
@@ -79,7 +91,7 @@ loop
     ;
 
 loopBindingExpression
-    : '[' IDENTIFIER expression typeName expression expression ']'
+    : '[' IDENTIFIER typeName? expression expression expression ']'
     ;
 
 binary

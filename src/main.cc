@@ -99,10 +99,10 @@ public:
                     visitProgram(context).as<std::vector<AST::BaseExpressionPtr>>());
 
         // Debug print body
-        for (auto& expr: programBody) {
-            expr->DebugPrint(0);
-        }
-        std::cerr.flush();
+        //for (auto& expr: programBody) {
+        //    expr->DebugPrint(0);
+        //}
+        //std::cerr.flush();
 
         // Generate code
         AST::CodeGenContext codeGenContext = {
@@ -113,11 +113,15 @@ public:
         };
 
         // Generate root scope
+        for (auto& scopeItem: RootScope.Types) {
+            scopeItem.second->Generate(codeGenContext);
+        }
+
         for (auto& scopeItem: RootScope.Bindings) {
             assert(rootScope.Bindings.find(scopeItem.first) == rootScope.Bindings.end()
                    && "Conflicting binding name in global scope");
 
-            scopeItem.second->DebugPrint(0);
+            //scopeItem.second->DebugPrint(0);
 
             llvm::Value* value = scopeItem.second->Generate(codeGenContext);
             rootScope.Bindings.insert(rootScope.Bindings.end(), std::make_pair(scopeItem.first, value));
@@ -168,12 +172,13 @@ public:
 
         lispParser::DefunContext* defunContext = context->defun();
         lispParser::DefineContext* defineContext = context->define();
+        lispParser::DefstructContext* defstructContext = context->defstruct();
         if (defunContext != nullptr) {
-            //toplevelExpression = std::move(visitDefun(defunContext).as<AST::BaseExpressionPtr>());
             visitDefun(defunContext);
         } else if (defineContext != nullptr) {
-            //toplevelExpression = std::move(visitDefine(defineContext).as<AST::BaseExpressionPtr>());
             visitDefine(defineContext);
+        } else if (defstructContext != nullptr) {
+            visitDefstruct(defstructContext);
         } else {
             assert(false && "Internal parser error");
         }
@@ -222,6 +227,31 @@ public:
         return AST::BaseExpressionPtr();
     }
 
+    virtual antlrcpp::Any visitDefstruct(lispParser::DefstructContext *context) override
+    {
+        std::vector<AST::StructExpression::Member> members;
+        for (lispParser::StructMemberContext* memberContext: context->structMember()) {
+            members.emplace_back(std::move(visitStructMember(memberContext).as<AST::StructExpression::Member>()));
+        }
+        AST::SourceParseContext parseContext = { CopyString(context->IDENTIFIER()), context->getStart()->getLine() };
+        AST::BaseExpressionPtr structExpr = std::make_unique<AST::StructExpression>(parseContext, std::move(members));
+
+        // Add global binding
+        RootScope.Types.emplace_back(std::make_pair(parseContext.Source, std::move(structExpr)));
+        return AST::BaseExpressionPtr();
+    }
+
+    virtual antlrcpp::Any visitStructMember(lispParser::StructMemberContext *context) override
+    {
+        AST::StructExpression::Member structMember = {
+            CopyString(context->IDENTIFIER()),
+            visitTypeName(context->typeName()),
+            (context->expression() != nullptr) ?
+                std::move(visitExpression(context->expression()).as<AST::BaseExpressionPtr>()) : nullptr
+        };
+        return structMember;
+    }
+
     virtual antlrcpp::Any visitExpression(lispParser::ExpressionContext *context) override
     {
         lispParser::ConstantContext* constant = context->constant();
@@ -255,14 +285,14 @@ public:
 
     virtual antlrcpp::Any visitConstant(lispParser::ConstantContext *context) override
     {
-        auto identifier = context->IDENTIFIER();
+        auto symbol = context->symbolReference();
         auto floatLiteral = context->FLOAT_LITERAL();
         auto integerLiteral = context->INTEGER_LITERAL();
         auto stringLiteral = context->STRING_LITERAL();
 
         AST::BaseExpressionPtr expr;
-        if (identifier != nullptr) {
-            AST::SourceParseContext parseContext = { CopyString(identifier), context->getStart()->getLine() };
+        if (symbol != nullptr) {
+            AST::SourceParseContext parseContext = { CopyString(symbol), context->getStart()->getLine() };
             expr = std::make_unique<AST::ValueExpression>(parseContext);
         } else if (floatLiteral != nullptr) {
             AST::SourceParseContext parseContext = { CopyString(floatLiteral), context->getStart()->getLine() };
@@ -285,6 +315,12 @@ public:
             expr = std::make_unique<AST::LiteralExpression>(parseContext, AST::LiteralExpression::String);
         }
         return expr;
+    }
+
+    virtual antlrcpp::Any visitSymbolReference(lispParser::SymbolReferenceContext *context) override
+    {
+        assert(false && "Should not be called directly"); // TODO: Refactor this
+        return nullptr;
     }
 
     virtual antlrcpp::Any visitCallable(lispParser::CallableContext *context) override
@@ -379,7 +415,7 @@ public:
             AST::ExpressionType bindingType = visitTypeName(typeName).as<AST::ExpressionType>();
 
             AST::SourceParseContext parseContext = { CopyString(typeName->getStart()), typeName->getStart()->getLine() };
-            bindingExpr = std::make_unique<AST::TypeCastExpression>(parseContext, std::move(bindingExpr), bindingType);
+            bindingExpr = std::make_unique<AST::TypeCastExpression>(parseContext, bindingType, std::move(bindingExpr));
         }
 
         return bindingExpr;
@@ -458,11 +494,11 @@ public:
     virtual antlrcpp::Any visitLoopBindingExpression(lispParser::LoopBindingExpressionContext *context) override
     {
         AST::LoopExpression::BindingExpression bindingExpression = {
-            CopyString(context->IDENTIFIER()),
+            CopyString(context->IDENTIFIER()),                                               // name
+            visitTypeName(context->typeName()).as<AST::ExpressionType>(),                    // desired type
             std::move(visitExpression(context->expression(0)).as<AST::BaseExpressionPtr>()), // initial value
-            visitTypeName(context->typeName()).as<AST::ExpressionType>(),
             std::move(visitExpression(context->expression(1)).as<AST::BaseExpressionPtr>()), // exit condition
-            std::move(visitExpression(context->expression(2)).as<AST::BaseExpressionPtr>())
+            std::move(visitExpression(context->expression(2)).as<AST::BaseExpressionPtr>())  // body
         };
         return bindingExpression;
     }

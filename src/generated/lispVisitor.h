@@ -27,9 +27,15 @@ public:
 
     virtual antlrcpp::Any visitDefine(lispParser::DefineContext *context) = 0;
 
+    virtual antlrcpp::Any visitDefstruct(lispParser::DefstructContext *context) = 0;
+
+    virtual antlrcpp::Any visitStructMember(lispParser::StructMemberContext *context) = 0;
+
     virtual antlrcpp::Any visitExpression(lispParser::ExpressionContext *context) = 0;
 
     virtual antlrcpp::Any visitConstant(lispParser::ConstantContext *context) = 0;
+
+    virtual antlrcpp::Any visitSymbolReference(lispParser::SymbolReferenceContext *context) = 0;
 
     virtual antlrcpp::Any visitCallable(lispParser::CallableContext *context) = 0;
 

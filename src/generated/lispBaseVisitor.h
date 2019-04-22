@@ -31,11 +31,23 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual antlrcpp::Any visitDefstruct(lispParser::DefstructContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual antlrcpp::Any visitStructMember(lispParser::StructMemberContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual antlrcpp::Any visitExpression(lispParser::ExpressionContext *ctx) override {
     return visitChildren(ctx);
   }
 
   virtual antlrcpp::Any visitConstant(lispParser::ConstantContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual antlrcpp::Any visitSymbolReference(lispParser::SymbolReferenceContext *ctx) override {
     return visitChildren(ctx);
   }
 
