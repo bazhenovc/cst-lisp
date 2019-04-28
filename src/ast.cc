@@ -762,7 +762,8 @@ namespace AST
 
     llvm::Value* LoopExpression::Generate(CodeGenContext &cc)
     {
-        llvm::Function* parentFunction = cc.Builder->GetInsertBlock()->getParent();
+        llvm::BasicBlock* parentBlock = cc.Builder->GetInsertBlock();
+        llvm::Function* parentFunction = parentBlock->getParent();
 
         //llvm::BasicBlock* loopStart = llvm::BasicBlock::Create(*cc.Context, "loop_init", parentFunction);
         llvm::BasicBlock* loopBlock = llvm::BasicBlock::Create(*cc.Context, "loop_body", parentFunction);
@@ -887,6 +888,24 @@ namespace AST
         llvm::Type* desiredType = bodyValue->getType();
         llvm::PHINode* phi = cc.Builder->CreatePHI(desiredType, 1);
         phi->addIncoming(bodyValue, loopBlock);
+
+        // PHINode should have one entry for each predecessor of its parent basic block
+        //  this means that we have to provide some sensible default value. Let it be zero
+        if (desiredType->isStructTy()) {
+            // TODO: Implement default values for structs
+            Assert(false, "Returning structs from loops is not yet implemented");
+        } else {
+            if (desiredType->isIntegerTy()) {
+                llvm::Value* zero = llvm::ConstantInt::get(desiredType, 0);
+                phi->addIncoming(zero, parentBlock);
+            } else if (desiredType->isFloatingPointTy()) {
+                llvm::Value* zero = llvm::ConstantFP::get(desiredType, 0.0);
+                phi->addIncoming(zero, parentBlock);
+            } else {
+                Assert(false, "Unable to provide default value for loop return type");
+            }
+        }
+
         return phi;
     }
 
