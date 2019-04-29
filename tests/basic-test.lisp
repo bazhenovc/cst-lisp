@@ -150,6 +150,10 @@
     (set vec.z 6)
     (cond
       [(= 15 (+ vec.x (+ vec.y vec.z))) (puts "mutable struct test passed")]
+      [else (puts "mutable struct test failed")])
+    (set vec (vector3i 7 8 9))
+    (cond
+      [(= 24 (+ vec.x (+ vec.y vec.z))) (puts "mutable struct test passed")]
       [else (puts "mutable struct test failed")])))
 
 (defun main () i32
