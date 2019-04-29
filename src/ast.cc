@@ -552,7 +552,7 @@ namespace AST
     //-----------------------------------------------------------------------------------------------------------------
     // Let
     LetExpression::LetExpression(SourceParseContext parseContext,
-                                 std::unordered_map<std::string_view, BaseExpressionPtr> &&bindings,
+                                 std::unordered_map<std::string_view, Binding>&& bindings,
                                  std::vector<BaseExpressionPtr> &&body)
         : BaseExpression(parseContext)
     {
@@ -570,10 +570,12 @@ namespace AST
             auto itr = localScope.Bindings.find(bindingName);
             Assert(itr == localScope.Bindings.end(), "Conflicting binding name");
 
-            llvm::Value* bindingValue = binding.second->Generate(cc);
+            ExpressionQualifiers qualifiers = binding.second.Qualifiers;
+
+            llvm::Value* bindingValue = binding.second.Body->Generate(cc);
             llvm::Type* bindingType = bindingValue->getType();
 
-            if (bindingType->isStructTy()) {// || !llvm::Constant::classof(bindingValue)) {
+            if (bindingType->isStructTy() || qualifiers.IsMutable) {// || !llvm::Constant::classof(bindingValue)) {
                 llvm::Value* bindingAlloc = cc.Builder->CreateAlloca(bindingValue->getType());
                 cc.Builder->CreateStore(bindingValue, bindingAlloc);
                 bindingValue = bindingAlloc;
@@ -600,11 +602,35 @@ namespace AST
     {
         BaseExpression::DebugPrint(indent);
         for (auto& expr: Bindings) {
-            expr.second->DebugPrint(indent + 1);
+            expr.second.Body->DebugPrint(indent + 1);
         }
         for (auto& body: Body) {
             body->DebugPrint(indent + 1);
         }
+    }
+
+    //-----------------------------------------------------------------------------------------------------------------
+    // Set
+    SetExpression::SetExpression(SourceParseContext parseContext,
+                                 BaseExpressionPtr mutableValue, BaseExpressionPtr expression)
+        : BaseExpression(parseContext)
+    {
+        MutableValue = std::move(mutableValue);
+        Expression = std::move(expression);
+    }
+
+    llvm::Value* SetExpression::Generate(CodeGenContext &cc)
+    {
+        llvm::Value* mutableValue = MutableValue->Generate(cc);
+        llvm::Value* expression = Expression->Generate(cc);
+
+        Assert(llvm::AllocaInst::classof(mutableValue) || llvm::GetElementPtrInst::classof(mutableValue),
+               "(set) expects a mutable value");
+
+        llvm::Type* desiredType = mutableValue->getType()->getPointerElementType();
+
+        cc.Builder->CreateStore(GenerateSafeTypeCast(expression, desiredType), mutableValue);
+        return expression;
     }
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -666,10 +692,11 @@ namespace AST
 
     //-----------------------------------------------------------------------------------------------------------------
     // Value
-    ValueExpression::ValueExpression(SourceParseContext parseContext)
+    ValueExpression::ValueExpression(SourceParseContext parseContext, bool dereferencePointer)
         : BaseExpression(parseContext)
     {
         Value = parseContext.Source;
+        DereferencePointer = dereferencePointer;
     }
 
     llvm::Value* ValueExpression::Generate(CodeGenContext &cc)
@@ -708,13 +735,11 @@ namespace AST
             StructTypeInfo::Member& member = (*memberItr).second;
 
             value = cc.Builder->CreateStructGEP(value, member.Index);
-            value = cc.Builder->CreateLoad(value);
+            if (DereferencePointer) {
+                value = cc.Builder->CreateLoad(value);
+            }
             valueType = value->getType();
         }
-
-        //if (llvm::AllocaInst::classof(value)) {
-        //    return cc.Builder->CreateLoad(value);
-        //}
 
         // TODO: refactor strings and arrays
         if (valueType->isPointerTy() && value->getType()->getContainedType(0)->isArrayTy()) {
@@ -724,6 +749,10 @@ namespace AST
             };
             return cc.Builder->CreateGEP(value->getType()->getContainedType(0),
                                          value, indices);
+        }
+
+        if (DereferencePointer && llvm::AllocaInst::classof(value)) {
+            return cc.Builder->CreateLoad(value);
         }
 
         return value;

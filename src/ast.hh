@@ -88,6 +88,11 @@ namespace AST
         bool IsPointer;
     };
 
+    struct ExpressionQualifiers
+    {
+        bool IsMutable = false;
+    };
+
     // Expressions
 
     struct ExpressionScope
@@ -177,15 +182,32 @@ namespace AST
 
     struct LetExpression : public BaseExpression
     {
-        std::unordered_map<std::string_view, BaseExpressionPtr> Bindings;
+        struct Binding
+        {
+            BaseExpressionPtr       Body;
+            ExpressionQualifiers    Qualifiers;
+        };
+
+        std::unordered_map<std::string_view, Binding> Bindings;
         std::vector<BaseExpressionPtr> Body;
 
         LetExpression(SourceParseContext parseContext,
-                      std::unordered_map<std::string_view, BaseExpressionPtr>&& bindings,
+                      std::unordered_map<std::string_view, Binding>&& bindings,
                       std::vector<BaseExpressionPtr>&& body);
 
         virtual llvm::Value* Generate(CodeGenContext& cc) override;
         virtual void DebugPrint(int indent) override;
+    };
+
+    struct SetExpression : public BaseExpression
+    {
+        BaseExpressionPtr   MutableValue;
+        BaseExpressionPtr   Expression;
+
+        SetExpression(SourceParseContext parseContext,
+                      BaseExpressionPtr mutableValue, BaseExpressionPtr expression);
+
+        virtual llvm::Value* Generate(CodeGenContext &cc) override;
     };
 
     struct LiteralExpression : public BaseExpression
@@ -210,8 +232,9 @@ namespace AST
     struct ValueExpression : public BaseExpression
     {
         std::string_view Value;
+        bool DereferencePointer;
 
-        ValueExpression(SourceParseContext parseContext);
+        ValueExpression(SourceParseContext parseContext, bool dereferencePointer);
 
         virtual llvm::Value* Generate(CodeGenContext &cc) override;
     };

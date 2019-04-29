@@ -15,18 +15,19 @@ public:
     T__0 = 1, T__1 = 2, T__2 = 3, T__3 = 4, T__4 = 5, T__5 = 6, T__6 = 7, 
     T__7 = 8, T__8 = 9, T__9 = 10, T__10 = 11, T__11 = 12, T__12 = 13, T__13 = 14, 
     T__14 = 15, T__15 = 16, T__16 = 17, T__17 = 18, T__18 = 19, T__19 = 20, 
-    T__20 = 21, T__21 = 22, T__22 = 23, T__23 = 24, WHITESPACE = 25, POINTER_PREFIX = 26, 
-    IDENTIFIER = 27, FLOAT_LITERAL = 28, INTEGER_LITERAL = 29, STRING_LITERAL = 30, 
-    LINE_COMMENT = 31
+    T__20 = 21, T__21 = 22, T__22 = 23, T__23 = 24, T__24 = 25, T__25 = 26, 
+    WHITESPACE = 27, POINTER_PREFIX = 28, IDENTIFIER = 29, FLOAT_LITERAL = 30, 
+    INTEGER_LITERAL = 31, STRING_LITERAL = 32, LINE_COMMENT = 33
   };
 
   enum {
     RuleProgram = 0, RuleToplevel = 1, RuleDefun = 2, RuleDefine = 3, RuleDefstruct = 4, 
     RuleStructMember = 5, RuleExpression = 6, RuleConstant = 7, RuleSymbolReference = 8, 
     RuleCallable = 9, RuleParameter = 10, RuleLambda = 11, RuleTypedParameter = 12, 
-    RuleLet = 13, RuleTypedValueBinding = 14, RuleTypeName = 15, RuleCond = 16, 
-    RuleCondCondition = 17, RuleCondValue = 18, RuleLoop = 19, RuleLoopBindingExpression = 20, 
-    RuleBinary = 21, RuleBinaryOperator = 22
+    RuleLet = 13, RuleTypedValueBinding = 14, RuleTypedValueQualifier = 15, 
+    RuleTypeName = 16, RuleSet = 17, RuleCond = 18, RuleCondCondition = 19, 
+    RuleCondValue = 20, RuleLoop = 21, RuleLoopBindingExpression = 22, RuleBinary = 23, 
+    RuleBinaryOperator = 24
   };
 
   lispParser(antlr4::TokenStream *input);
@@ -54,7 +55,9 @@ public:
   class TypedParameterContext;
   class LetContext;
   class TypedValueBindingContext;
+  class TypedValueQualifierContext;
   class TypeNameContext;
+  class SetContext;
   class CondContext;
   class CondConditionContext;
   class CondValueContext;
@@ -163,6 +166,7 @@ public:
     CallableContext *callable();
     LambdaContext *lambda();
     LetContext *let();
+    SetContext *set();
     CondContext *cond();
     LoopContext *loop();
     BinaryContext *binary();
@@ -285,6 +289,7 @@ public:
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *IDENTIFIER();
     ExpressionContext *expression();
+    TypedValueQualifierContext *typedValueQualifier();
     TypeNameContext *typeName();
 
 
@@ -293,6 +298,18 @@ public:
   };
 
   TypedValueBindingContext* typedValueBinding();
+
+  class  TypedValueQualifierContext : public antlr4::ParserRuleContext {
+  public:
+    TypedValueQualifierContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  TypedValueQualifierContext* typedValueQualifier();
 
   class  TypeNameContext : public antlr4::ParserRuleContext {
   public:
@@ -307,6 +324,20 @@ public:
   };
 
   TypeNameContext* typeName();
+
+  class  SetContext : public antlr4::ParserRuleContext {
+  public:
+    SetContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    virtual size_t getRuleIndex() const override;
+    SymbolReferenceContext *symbolReference();
+    ExpressionContext *expression();
+
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+   
+  };
+
+  SetContext* set();
 
   class  CondContext : public antlr4::ParserRuleContext {
   public:

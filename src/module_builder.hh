@@ -103,7 +103,11 @@ public:
 
     virtual antlrcpp::Any visitTypedValueBinding(lispParser::TypedValueBindingContext *context) override;
 
+    virtual antlrcpp::Any visitTypedValueQualifier(lispParser::TypedValueQualifierContext *context) override;
+
     virtual antlrcpp::Any visitTypeName(lispParser::TypeNameContext *context) override;
+
+    virtual antlrcpp::Any visitSet(lispParser::SetContext *context) override;
 
     virtual antlrcpp::Any visitCond(lispParser::CondContext *context) override;
 

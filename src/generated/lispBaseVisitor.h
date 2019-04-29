@@ -75,7 +75,15 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual antlrcpp::Any visitTypedValueQualifier(lispParser::TypedValueQualifierContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual antlrcpp::Any visitTypeName(lispParser::TypeNameContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
+  virtual antlrcpp::Any visitSet(lispParser::SetContext *ctx) override {
     return visitChildren(ctx);
   }
 

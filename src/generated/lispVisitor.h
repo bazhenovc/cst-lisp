@@ -49,7 +49,11 @@ public:
 
     virtual antlrcpp::Any visitTypedValueBinding(lispParser::TypedValueBindingContext *context) = 0;
 
+    virtual antlrcpp::Any visitTypedValueQualifier(lispParser::TypedValueQualifierContext *context) = 0;
+
     virtual antlrcpp::Any visitTypeName(lispParser::TypeNameContext *context) = 0;
+
+    virtual antlrcpp::Any visitSet(lispParser::SetContext *context) = 0;
 
     virtual antlrcpp::Any visitCond(lispParser::CondContext *context) = 0;
 

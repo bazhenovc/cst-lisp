@@ -54,6 +54,16 @@
   (let ([x (lambda (f16) i32 (rand))])
     (x 0.2)))
 
+(defun test-scope-mutable () void
+  (let ([x #:mutable i32 0])
+    (cond
+      [(= 0 x) (puts "Mutable test passed")]
+      [else (puts "Mutable test failed")])
+    (set x (+ x 42))
+    (cond
+      [(= 42 x) (puts "Mutable test passed")]
+      [else (puts "Mutable test failed")])))
+
 (defun test-cond-if () void
   (cond
     [0 (puts "cond failed")]
@@ -134,13 +144,20 @@
   (let ([vec (vector3i 1 2 3)])
     (cond
       [(= 6 (+ vec.x (+ vec.y vec.z))) (puts "struct test passed")]
-      [else (puts "struct test failed")])))
+      [else (puts "struct test failed")])
+    (set vec.x 4)
+    (set vec.y 5)
+    (set vec.z 6)
+    (cond
+      [(= 15 (+ vec.x (+ vec.y vec.z))) (puts "mutable struct test passed")]
+      [else (puts "mutable struct test failed")])))
 
 (defun main () i32
   (puts "Hello World")
   (puts string-constant)
   (test-scope)
   (test-scope-lambda)
+  (test-scope-mutable)
   (test-func-with-args 3.14 1.12)
   (test-cond-if)
   (test-cond)

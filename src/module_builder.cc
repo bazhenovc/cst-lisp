@@ -224,10 +224,10 @@ antlrcpp::Any ModuleBuilder::visitExpression(lispParser::ExpressionContext* cont
     lispParser::CallableContext* callable = context->callable();
     lispParser::LambdaContext* lambda = context->lambda();
     lispParser::LetContext* let = context->let();
+    lispParser::SetContext* set = context->set();
     lispParser::CondContext* cond = context->cond();
     lispParser::LoopContext* loop = context->loop();
     lispParser::BinaryContext* binary = context->binary();
-
 
     if (constant != nullptr) {
         return visitConstant(constant);
@@ -237,6 +237,8 @@ antlrcpp::Any ModuleBuilder::visitExpression(lispParser::ExpressionContext* cont
         return visitLambda(lambda);
     } else if (let != nullptr) {
         return visitLet(let);
+    } else if (set != nullptr) {
+        return visitSet(set);
     } else if (cond != nullptr) {
         return visitCond(cond);
     } else if (loop != nullptr) {
@@ -259,7 +261,7 @@ antlrcpp::Any ModuleBuilder::visitConstant(lispParser::ConstantContext* context)
     AST::BaseExpressionPtr expr;
     if (symbol != nullptr) {
         AST::SourceParseContext parseContext = { CopyString(symbol), context->getStart()->getLine() };
-        expr = std::make_unique<AST::ValueExpression>(parseContext);
+        expr = std::make_unique<AST::ValueExpression>(parseContext, true);
     } else if (floatLiteral != nullptr) {
         AST::SourceParseContext parseContext = { CopyString(floatLiteral), context->getStart()->getLine() };
         expr = std::make_unique<AST::LiteralExpression>(parseContext, AST::LiteralExpression::Float);
@@ -353,13 +355,20 @@ antlrcpp::Any ModuleBuilder::visitLet(lispParser::LetContext* context)
 {
     AST::SourceParseContext parseContext = { CopyString(context->getStart()), context->getStart()->getLine() };
 
-    std::unordered_map<std::string_view, AST::BaseExpressionPtr> letBindings;
+    std::unordered_map<std::string_view, AST::LetExpression::Binding> letBindings;
     for (lispParser::TypedValueBindingContext* bindingContext: context->typedValueBinding()) {
         std::string_view bindingName = CopyString(bindingContext->IDENTIFIER());
         assert(letBindings.find(bindingName) == letBindings.end() && "Conflicting binding");
 
+        lispParser::TypedValueQualifierContext* typedValueQualifier = bindingContext->typedValueQualifier();
+
+        AST::ExpressionQualifiers bindingQualifiers = typedValueQualifier != nullptr ?
+                    visitTypedValueQualifier(typedValueQualifier).as<AST::ExpressionQualifiers>() : AST::ExpressionQualifiers();
+
         AST::BaseExpressionPtr bindingExpr = std::move(visitTypedValueBinding(bindingContext).as<AST::BaseExpressionPtr>());
-        letBindings.insert(letBindings.end(), std::make_pair(bindingName, std::move(bindingExpr)));
+
+        AST::LetExpression::Binding binding = { std::move(bindingExpr), bindingQualifiers };
+        letBindings.insert(letBindings.end(), std::make_pair(bindingName, std::move(binding)));
     }
 
     std::vector<AST::BaseExpressionPtr> letBody;
@@ -387,12 +396,32 @@ antlrcpp::Any ModuleBuilder::visitTypedValueBinding(lispParser::TypedValueBindin
     return bindingExpr;
 }
 
+antlrcpp::Any ModuleBuilder::visitTypedValueQualifier(lispParser::TypedValueQualifierContext *context)
+{
+    AST::ExpressionQualifiers qualifiers = {};
+    qualifiers.IsMutable = true; // mutable is the only possible qualifier right now
+
+    return qualifiers;
+}
+
 antlrcpp::Any ModuleBuilder::visitTypeName(lispParser::TypeNameContext* context)
 {
     AST::ExpressionType exprType;
     exprType.TypeName = CopyString(context->IDENTIFIER());
     exprType.IsPointer = context->POINTER_PREFIX() != nullptr;
     return exprType;
+}
+
+antlrcpp::Any ModuleBuilder::visitSet(lispParser::SetContext *context)
+{
+    AST::SourceParseContext valueParseContext = { CopyString(context->symbolReference()), context->getStart()->getLine() };
+    AST::BaseExpressionPtr mutableValue = std::make_unique<AST::ValueExpression>(valueParseContext, false);
+    AST::BaseExpressionPtr expression = std::move(visitExpression(context->expression()).as<AST::BaseExpressionPtr>());
+
+    AST::SourceParseContext parseContext =  { CopyString(context), context->getStart()->getLine() };
+    AST::BaseExpressionPtr setExpr = std::make_unique<AST::SetExpression>(parseContext, std::move(mutableValue), std::move(expression));
+
+    return std::move(setExpr);
 }
 
 antlrcpp::Any ModuleBuilder::visitCond(lispParser::CondContext* context)

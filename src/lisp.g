@@ -31,6 +31,7 @@ expression
     | callable
     | lambda
     | let
+    | set
     | cond
     | loop
     | binary
@@ -66,11 +67,19 @@ let
     ;
 
 typedValueBinding
-    : '[' IDENTIFIER typeName? expression ']'
+    : '[' IDENTIFIER typedValueQualifier? typeName? expression ']'
+    ;
+
+typedValueQualifier
+    : '#:mutable'
     ;
 
 typeName
     : POINTER_PREFIX? IDENTIFIER
+    ;
+
+set
+    : '(' 'set' symbolReference expression ')'
     ;
 
 cond
