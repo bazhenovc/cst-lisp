@@ -164,7 +164,12 @@
   (let ([x (nested-struct (vector3i 1 2 3) (vector3i 4 5 6))])
     (cond
       [(= 7 (+ x.offset.x x.scale.z)) (puts "nested struct test passed")]
-      [else (puts "nested struct test failed")])))
+      [else (puts "nested struct test failed")])
+    (set x.offset.x 5)
+    (set x.scale.z 5)
+    (cond
+      [(= 10 (+ x.offset.x x.scale.z)) (puts "mutable nested struct test passed")]
+      [else (puts "mutable nested struct test failed")])))
 
 (defun main () i32
   (puts "Hello World")

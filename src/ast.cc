@@ -926,20 +926,8 @@ namespace AST
 
         // PHINode should have one entry for each predecessor of its parent basic block
         //  this means that we have to provide some sensible default value. Let it be zero
-        if (desiredType->isStructTy()) {
-            // TODO: Implement default values for structs
-            Assert(false, "Returning structs from loops is not yet implemented");
-        } else {
-            if (desiredType->isIntegerTy()) {
-                llvm::Value* zero = llvm::ConstantInt::get(desiredType, 0);
-                phi->addIncoming(zero, parentBlock);
-            } else if (desiredType->isFloatingPointTy()) {
-                llvm::Value* zero = llvm::ConstantFP::get(desiredType, 0.0);
-                phi->addIncoming(zero, parentBlock);
-            } else {
-                Assert(false, "Unable to provide default value for loop return type");
-            }
-        }
+        llvm::Value* nullValue = llvm::Constant::getNullValue(desiredType);
+        phi->addIncoming(nullValue, parentBlock);
 
         return phi;
     }
