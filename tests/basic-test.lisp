@@ -156,6 +156,16 @@
       [(= 24 (+ vec.x (+ vec.y vec.z))) (puts "mutable struct test passed")]
       [else (puts "mutable struct test failed")])))
 
+(defstruct nested-struct
+  [offset vector3i]
+  [scale vector3i])
+
+(defun test-nested-struct () void
+  (let ([x (nested-struct (vector3i 1 2 3) (vector3i 4 5 6))])
+    (cond
+      [(= 7 (+ x.offset.x x.scale.z)) (puts "nested struct test passed")]
+      [else (puts "nested struct test failed")])))
+
 (defun main () i32
   (puts "Hello World")
   (puts string-constant)
@@ -170,5 +180,6 @@
   (test-type-cast)
   (test-loop)
   (test-struct-members)
+  (test-nested-struct)
   (let ([x (test-lambda 15041993)])
     0))

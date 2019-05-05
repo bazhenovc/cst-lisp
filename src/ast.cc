@@ -703,12 +703,13 @@ namespace AST
     {
         std::string_view symbolName = Value;
         size_t dotIndex = Value.find_first_of('.');
-        if (dotIndex != std::string_view::npos) {
-            symbolName = symbolName.substr(0, dotIndex);
-        }
 
         // TODO: refactor scopes
-        auto itr = cc.Scope.Bindings.find(symbolName);
+        std::string_view rootSymbolName = symbolName;
+        if (dotIndex != std::string_view::npos) {
+            rootSymbolName = symbolName.substr(0, dotIndex);
+        }
+        auto itr = cc.Scope.Bindings.find(rootSymbolName);
         Assert(itr != cc.Scope.Bindings.end(), "Unknown identifier");
 
         llvm::Value* value = (*itr).second;
@@ -716,7 +717,8 @@ namespace AST
 
         while (dotIndex != std::string_view::npos) {
             Assert(valueType->getContainedType(0)->isStructTy(), "Value does not seem to be a struct");
-            symbolName = Value.substr(dotIndex + 1, symbolName.size());
+
+            symbolName = symbolName.substr(dotIndex + 1, std::string_view::npos);
             dotIndex = symbolName.find_first_of('.');
 
             std::string_view memberName = symbolName;
@@ -725,19 +727,23 @@ namespace AST
             }
 
             auto typeInfoItr = cc.Scope.TypeInfoMap.find(valueType->getContainedType(0));
-            Assert(typeInfoItr != cc.Scope.TypeInfoMap.end(), "Value does not seem to be a struct");
+            if (typeInfoItr == cc.Scope.TypeInfoMap.end()) {
+                std::string errorMessage = llvm::formatv("Value \"{0}\" does not seem to be a struct",
+                                                         ToLLVM(memberName));
+                Assert(false, errorMessage);
+            }
 
             StructTypeInfo& typeInfo = (*typeInfoItr).second;
             auto memberItr = typeInfo.Members.find(memberName);
 
-            Assert(memberItr != typeInfo.Members.end(), "No member named {} found for struct {}");
-                   //llvm::formatv("No member named {0} found for struct {1}", ToLLVM(symbolName), valueType->getStructName()));
+            if (memberItr == typeInfo.Members.end()) {
+                std::string errorMessage = llvm::formatv("No member named \"{0}\" found for struct \"{1}\"",
+                                                         ToLLVM(memberName), valueType->getContainedType(0)->getStructName());
+                Assert(false, errorMessage);
+            }
             StructTypeInfo::Member& member = (*memberItr).second;
 
             value = cc.Builder->CreateStructGEP(value, member.Index);
-            if (DereferencePointer) {
-                value = cc.Builder->CreateLoad(value);
-            }
             valueType = value->getType();
         }
 
@@ -751,7 +757,7 @@ namespace AST
                                          value, indices);
         }
 
-        if (DereferencePointer && llvm::AllocaInst::classof(value)) {
+        if (DereferencePointer && (llvm::AllocaInst::classof(value) || llvm::GetElementPtrInst::classof(value))) {
             return cc.Builder->CreateLoad(value);
         }
 
