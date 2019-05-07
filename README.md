@@ -48,7 +48,7 @@ In no particular order:
 <td><pre>
 
     > cst-lisp-compiler.exe tests/basic-test.lisp -ir-binary=build/basic-test.ll -ir-plaintext=stdout
-    > lli.exe basic-test.ll
+    > lli.exe build/basic-test.ll
     Hello World
     This is a string constant
     Mutable test passed
