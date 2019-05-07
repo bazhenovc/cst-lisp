@@ -20,6 +20,76 @@ In no particular order:
 
 ## Examples
 
+### Demo application source and output
+
+<table>
+<tr>
+<td><pre lang="lisp">
+
+    (defun main () i32
+      (puts "Hello World")
+      (puts string-constant)
+      (test-scope)
+      (test-scope-lambda)
+      (test-scope-mutable)
+      (test-func-with-args 3.14 1.12)
+      (test-cond-if)
+      (test-cond)
+      (test-integer-binary-operators)
+      (test-float-binary-operators)
+      (test-type-cast)
+      (test-loop)
+      (test-struct-members)
+      (test-nested-struct)
+      (let ([x (test-lambda 15041993)])
+        0))
+
+</pre></td>
+<td><pre>
+
+    > cst-lisp-compiler.exe tests/basic-test.lisp -ir-binary=build/basic-test.ll -ir-plaintext=stdout
+    > lli.exe basic-test.ll
+    Hello World
+    This is a string constant
+    Mutable test passed
+    Mutable test passed
+    cond passed
+    1 is true
+    Testing integer binary operators
+    5 equals 5
+    1 not-equals 5
+    9 is greater than 3
+    2 is lesser than 4
+    7 equals or greater than 5
+    7 equals or greater than 7
+    5 equals or lesser than 7
+    7 equals or lesser than 7
+    Testing floating-point binary operators
+    5.0 equals 5.0
+    1.8 not-equals 5.14
+    9.2 is greater than 3.3
+    2.2 is lesser than 4.1
+    7.1 equals or greater than 5.2
+    7.0 equals or greater than 7.0
+    5.0 equals or lesser than 7.0
+    7.0 equals or lesser than 7.0
+    type cast test passed
+    Loop iteration
+    Loop iteration
+    Loop iteration
+    Loop iteration
+    loop test passed
+    struct test passed
+    mutable struct test passed
+    mutable struct test passed
+    nested struct test passed
+    mutable nested struct test passed
+    test-lambda
+
+</pre></td>
+</tr>
+</table>
+
 ### Importing external functions
 
 Please note that comments after function declarations are added for clarity, they're not used by the compiler.
@@ -656,76 +726,6 @@ declare dllimport i32 @puts(i8*)
       %29 = phi i32 [ %27, %cond_0_body2 ], [ %28, %cond_1_body3 ]
       ret void
     }
-
-</pre></td>
-</tr>
-</table>
-
-### Putting it all together
-
-<table>
-<tr>
-<td><pre lang="lisp">
-
-    (defun main () i32
-      (puts "Hello World")
-      (puts string-constant)
-      (test-scope)
-      (test-scope-lambda)
-      (test-scope-mutable)
-      (test-func-with-args 3.14 1.12)
-      (test-cond-if)
-      (test-cond)
-      (test-integer-binary-operators)
-      (test-float-binary-operators)
-      (test-type-cast)
-      (test-loop)
-      (test-struct-members)
-      (test-nested-struct)
-      (let ([x (test-lambda 15041993)])
-        0))
-
-</pre></td>
-<td><pre>
-
-    > cst-lisp-compiler.exe tests/basic-test.lisp -ir-binary=build/basic-test.ll -ir-plaintext=stdout
-    > lli.exe basic-test.ll
-    Hello World
-    This is a string constant
-    Mutable test passed
-    Mutable test passed
-    cond passed
-    1 is true
-    Testing integer binary operators
-    5 equals 5
-    1 not-equals 5
-    9 is greater than 3
-    2 is lesser than 4
-    7 equals or greater than 5
-    7 equals or greater than 7
-    5 equals or lesser than 7
-    7 equals or lesser than 7
-    Testing floating-point binary operators
-    5.0 equals 5.0
-    1.8 not-equals 5.14
-    9.2 is greater than 3.3
-    2.2 is lesser than 4.1
-    7.1 equals or greater than 5.2
-    7.0 equals or greater than 7.0
-    5.0 equals or lesser than 7.0
-    7.0 equals or lesser than 7.0
-    type cast test passed
-    Loop iteration
-    Loop iteration
-    Loop iteration
-    Loop iteration
-    loop test passed
-    struct test passed
-    mutable struct test passed
-    mutable struct test passed
-    nested struct test passed
-    mutable nested struct test passed
-    test-lambda
 
 </pre></td>
 </tr>
