@@ -4,6 +4,11 @@ Hello, this is my experimental programming language based on LLVM libraries.
 
 At this stage it's pretty basic, thus I recommend you to lower your expectations. Please refrain from using this code in production for now.
 
+Dependencies:
+
+* LLVM 7.0.1
+* ANTLR 4.7.2 with C++ runtime
+
 ## Supported features
 
 In no particular order:
@@ -163,7 +168,7 @@ declare dllimport i32 @puts(i8*)
             (puts "test-lambda")
             (+ (/ in_value (get-float))
                (* (+ 1.22 in_value) 2))) 42.5))
-                 (named-lambda)))))
+                  (named-lambda)))))
 
 </pre></td>
 <td><pre lang="llvm">
